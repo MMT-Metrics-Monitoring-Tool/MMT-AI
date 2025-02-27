@@ -7,18 +7,33 @@ export default {
       { text: "Hello! How can I help you?", type: "bot" },
     ]);
     const input = ref("");
+    const loading = ref(false);
 
-    const sendMessage = () => {
+    const sendMessage = async () => {
       if (input.value.trim()) {
-        messages.value.push({ text: input.value, type: "user" });
+        const userMessage = { text: input.value, type: "user" };
+        messages.value.push(userMessage);
         input.value = "";
-        setTimeout(() => {
-          messages.value.push({ text: "Heehee", type: "bot" }); // Sample response after message.
-        }, 1000);
+        loading.value = true;
+        
+        try {
+          const resp = await fetch("http://localhost:5000/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ prompt: userMessage.text })
+          });
+          const data = await resp.json();
+          messages.value.push({ text: data.response, type: "bot" });
+        } catch (error) {
+          console.error("Error calling LLM: ", error);
+          messages.value.push({ text: "Error: Could not connect to the LLM.", type: "bot" });
+        } finally {
+          loading.value = false;
+        }
       }
     };
 
-    return { messages, input, sendMessage };
+    return { messages, input, sendMessage, loading };
   }
 }
 </script>
@@ -32,7 +47,9 @@ export default {
     </div>
     <div class="input-area">
       <input v-model="input" @keydown.enter="sendMessage" placeholder="Type a message" />
-      <button @click="sendMessage">Send</button>
+      <button @click="sendMessage" :disabled="loading">
+        {{ loading ? "Masterminding an answer..." : "Send" }}
+      </button>
     </div>
   </div>
 </template>

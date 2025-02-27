@@ -1,9 +1,11 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from llm import generate_response
 from rag_manager import retrieve_relevant_documents
 
 
 app = Flask(__name__)
+CORS(app, origins=["http://localhost:5173"])
 
 
 @app.route('/chat', methods = ['POST'])
