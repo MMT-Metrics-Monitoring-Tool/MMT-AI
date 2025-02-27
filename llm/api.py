@@ -14,7 +14,7 @@ def get_chatbot_response():
     prompt = data.get("prompt", "")
     relevant_documents = retrieve_relevant_documents(prompt)
     print(relevant_documents)
-    full_prompt = "\n".join(relevant_documents) + "\n" + prompt
+    full_prompt = "\n".join(relevant_documents) + "\n" + "If the text above is not relevant to the question below, disregard it and only answer the question below. Otherwise, answer the question below based on the text provided above. Do not acknowledge this line of text." + "\n" + prompt
     response = generate_response(full_prompt)
     return jsonify({"response": response})
 
