@@ -17,10 +17,10 @@
   max-width: 1280px;
   margin: 0 auto;
   padding: 2rem;
-  text-align: center;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  height: 90vh;
 }
 
 .input-area {
@@ -36,12 +36,14 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  height: 100%;
 }
 
 .message {
   max-width: 75%;
   padding: 10px;
   border-radius: 15px;
+  white-space: pre-wrap;
   word-wrap: break-word;
 }
 
