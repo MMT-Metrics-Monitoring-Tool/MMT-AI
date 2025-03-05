@@ -62,7 +62,6 @@ const sendMessage = async () => {
       alert("Session expired. Renewing token...");
       await startSession();
       await sendMessage();
-      location.reload();
     }
     console.error("Error calling LLM: ", error);
     messages.value.push({ text: "Error: Could not connect to the LLM.", type: "bot" });
