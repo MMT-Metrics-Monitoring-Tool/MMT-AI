@@ -8,11 +8,11 @@ import os
 
 
 load_dotenv()
+model_name = os.environ["MODEL_NAME"]
 
 chroma_client = chromadb.PersistentClient(path="./chroma_db")
 collection = chroma_client.get_or_create_collection(name="documents")
 
-model_name = os.environ["MODEL_NAME"]
 embedding_model = OllamaEmbeddings(model=model_name)
 
 urls = (
