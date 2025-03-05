@@ -11,8 +11,8 @@ import os
 
 
 load_dotenv()
-
 model_name = os.environ["MODEL_NAME"]
+
 llm = ChatOllama(model=model_name)
 
 system_prompt = """You are a helpful chatbot in a software project monitoring tool.\n
@@ -51,15 +51,15 @@ def get_session_history(session_id: str) -> BaseChatMessageHistory:
         store[session_id] = InMemoryChatMessageHistory()
     return store[session_id]
 
-config = {"configurable": {"session_id": "replaceme"}} # TODO proper session ID implementation.
 with_session_history = RunnableWithMessageHistory(chain, get_session_history, input_messages_key="messages")
 
-def generate_response(prompt: str) -> str:
+def generate_response(prompt: str, session_id: str) -> str:
     # relevant_documents = retrieve_relevant_documents(prompt)
     # print(relevant_documents)
     # full_prompt = "\n".join(relevant_documents) + "\n" + "If the text above is not relevant to the question below, disregard it and only answer the question below. Otherwise, answer the question below based on the text provided above. Do not acknowledge this line of text." + "\n" + prompt
+    config = {"configurable": {"session_id": session_id}}
     response = with_session_history.invoke(
-        {"messages": [HumanMessage(content=prompt)]},
+        {"messages": messages + [HumanMessage(content=prompt)]},
         config=config,
     )
     return response.content

@@ -56,6 +56,6 @@ def chatbot_endpoint():
         return jsonify({"error": "Session expired"}), 401
 
     prompt = request.json.get("prompt", "")
-    response = generate_response(prompt)
+    response = generate_response(prompt, session_id)
     return jsonify({"response": response})
 
