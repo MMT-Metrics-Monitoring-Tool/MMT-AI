@@ -1,14 +1,19 @@
-import chromadb
-import requests
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
 from langchain_ollama import OllamaEmbeddings
 from langchain_community.vectorstores import Chroma
+import chromadb
+import requests
+import os
 
+
+load_dotenv()
 
 chroma_client = chromadb.PersistentClient(path="./chroma_db")
 collection = chroma_client.get_or_create_collection(name="documents")
 
-embedding_model = OllamaEmbeddings(model="llama3:latest")
+model_name = os.environ["MODEL_NAME"]
+embedding_model = OllamaEmbeddings(model=model_name)
 
 urls = (
     "https://coursepages2.tuni.fi/comp-se-610/",
