@@ -34,11 +34,9 @@ trimmer = trim_messages(
 messages = [SystemMessage(system_prompt)]
 
 prompt_template = ChatPromptTemplate.from_messages([
-    (
-        "system",
-        system_prompt,
-    ),
+    ("system", system_prompt),
     MessagesPlaceholder(variable_name="messages"),
+    ("human", "{question}")
 ])
 
 chain = RunnablePassthrough.assign(messages=itemgetter("messages") | trimmer) | prompt_template | llm
@@ -51,7 +49,7 @@ def get_session_history(session_id: str) -> BaseChatMessageHistory:
         store[session_id] = InMemoryChatMessageHistory()
     return store[session_id]
 
-with_session_history = RunnableWithMessageHistory(chain, get_session_history, input_messages_key="messages")
+with_session_history = RunnableWithMessageHistory(chain, get_session_history, input_messages_key="question", history_messages_key="messages")
 
 def generate_response(prompt: str, session_id: str) -> str:
     # relevant_documents = retrieve_relevant_documents(prompt)
@@ -59,7 +57,10 @@ def generate_response(prompt: str, session_id: str) -> str:
     # full_prompt = "\n".join(relevant_documents) + "\n" + "If the text above is not relevant to the question below, disregard it and only answer the question below. Otherwise, answer the question below based on the text provided above. Do not acknowledge this line of text." + "\n" + prompt
     config = {"configurable": {"session_id": session_id}}
     response = with_session_history.invoke(
-        {"messages": messages + [HumanMessage(content=prompt)]},
+        {
+            "messages": messages,
+            "question": prompt,
+        },
         config=config,
     )
     return response.content

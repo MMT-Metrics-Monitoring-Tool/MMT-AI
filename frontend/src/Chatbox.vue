@@ -52,7 +52,7 @@ const sendMessage = async () => {
   try {
     const res = await axios.post(
       "http://localhost:5000/chat",
-      { message: input.value },
+      { prompt: input.value },
       { headers: { Authorization: token.value, ContentType: "application/json" } }
     );
     messages.value.push({ text: res.data.response, type: "bot" });
