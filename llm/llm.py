@@ -32,6 +32,7 @@ trimmer = trim_messages(
 )
 
 messages = [SystemMessage(system_prompt)]
+store = {}
 
 prompt_template = ChatPromptTemplate.from_messages([
     ("system", system_prompt),
@@ -41,14 +42,13 @@ prompt_template = ChatPromptTemplate.from_messages([
 
 chain = RunnablePassthrough.assign(messages=itemgetter("messages") | trimmer) | prompt_template | llm
 
-store = {}
-
 # Store message history. Currently supports only in-memory saving.
 def get_session_history(session_id: str) -> BaseChatMessageHistory:
     if session_id not in store:
         store[session_id] = InMemoryChatMessageHistory()
     return store[session_id]
 
+# See the RunnableWithMessageHistory documentation. It has nice examples on how this works.
 with_session_history = RunnableWithMessageHistory(chain, get_session_history, input_messages_key="question", history_messages_key="messages")
 
 def generate_response(prompt: str, session_id: str) -> str:
