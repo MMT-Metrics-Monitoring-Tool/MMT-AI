@@ -48,15 +48,24 @@
 }
 
 .user {
+  white-space: pre-wrap;
   align-self: flex-end;
   background: #1a1a1a;
   border-bottom-right-radius: 2px;
 }
 
 .bot {
+  white-space: pre-wrap;
   align-self: flex-start;
   background: #1a1a1a;
   border-bottom-left-radius: 2px;
+}
+.bot p {
+  margin: 0;
+  padding: 0;
+}
+.bot br {
+  display: none;
 }
 
 button {

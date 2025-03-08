@@ -1,9 +1,7 @@
 <template>
   <div class="chatbox">
     <div class="messages" ref="messagesContainer">
-      <div v-for="(msg, index) in messages" :key="index" :class="['message', msg.type]">
-        {{ msg.text }}
-      </div>
+      <div v-for="(msg, index) in messages" :key="index" :class="['message', msg.type]" v-html="msg.text"></div>
     </div>
     <div class="input-area">
       <input v-model="input" @keydown.enter="sendMessage" :disabled="loading" placeholder="Type a message" />
@@ -16,9 +14,10 @@
 
 <script setup>
 import { ref, useTemplateRef, onUpdated, onMounted } from "vue";
+import { marked } from "marked";
 
 const messages = ref([
-  { text: "Greetings. How may I be of assistance?", type: "bot" }, // TODO get initial message from LLM.
+  { text: "Greetings. How may I be of assistance?", rawText: "", type: "bot" }, // TODO get initial message from LLM.
 ]);
 const token = ref(null);
 const input = ref("");
@@ -26,10 +25,12 @@ const loading = ref(false);
 const messagesContainer = useTemplateRef('messagesContainer');
 
 const startSession = async () => {
-  const res = await axios.get("http://localhost:5000/start_session", {
+  const res = await fetch("http://localhost:5000/start_session", {
+    method: "GET",
     headers: token.value ? { Authorization: token.value } : {}
   });
-  token.value = res.data.token;
+  const data = await res.json();
+  token.value = data.token;
 }
 
 const scrollToBottom = () => {
@@ -45,7 +46,7 @@ onUpdated(scrollToBottom);
 const sendMessage = async () => {
   if (!input.value.trim() || !token.value) return;
   
-  messages.value.push({ text: input.value, type: "user" });
+  messages.value.push({ text: input.value, rawText: input.value, type: "user" });
   loading.value = true;
   
   try {
@@ -63,7 +64,7 @@ const sendMessage = async () => {
     const decoder = new TextDecoder();
     let responseMessage = "";
 
-    messages.value.push({ text: responseMessage, type: "bot" });
+    messages.value.push({ text: responseMessage, rawText: responseMessage, type: "bot" });
 
     while (true) {
       const { value, done } = await reader.read();
@@ -71,7 +72,11 @@ const sendMessage = async () => {
       console.log()
       responseMessage += decoder.decode(value, { stream: true });
       
-      messages.value[messages.value.length - 1] = { text: responseMessage, type: "bot" }
+      messages.value[messages.value.length - 1] = {
+        text: sanitizeMarkdown(responseMessage),
+        rawText: responseMessage,
+        type: "bot",
+      }
     }
   } catch (error) {
     if (error.response?.status === 401) {
@@ -86,6 +91,15 @@ const sendMessage = async () => {
     loading.value = false;
     scrollToBottom();
   }
+}
+
+const sanitizeMarkdown = (text) => {
+  let html = marked.parse(text);
+  // // Remove <p> tags
+  html = html.replace(/^<p>/, "").replace(/<\/p>$/, "");
+  // // Remove <br> tags without touching single newlines.
+  html = html.replace(/\n/g, "<br>");
+  return html;
 }
 
 </script>
