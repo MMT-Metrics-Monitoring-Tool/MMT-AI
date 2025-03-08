@@ -42,11 +42,8 @@ def start_session():
     token = generate_jwt_token()
     return jsonify({"token": generate_jwt_token()})
 
-@app.route('/chat', methods = ['POST', 'OPTIONS'])
+@app.route('/chat', methods = ['POST'])
 def chatbot_endpoint():
-    if request.method == "OPTIONS":
-        return _build_cors_preflight_response()
-
     token = request.headers.get("Authorization")
     if not token:
         return jsonify({"error": "Missing token"}), 401
