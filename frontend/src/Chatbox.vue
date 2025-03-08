@@ -16,7 +16,6 @@
 
 <script setup>
 import { ref, useTemplateRef, onUpdated, onMounted } from "vue";
-import axios from "axios";
 
 const messages = ref([
   { text: "Greetings. How may I be of assistance?", type: "bot" }, // TODO get initial message from LLM.
