@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-from flask import Flask, request, jsonify
+from flask import Flask, Response, request, jsonify
 from flask_cors import CORS
 from llm import generate_response
 import datetime
@@ -13,7 +13,7 @@ ALGORITHM = os.environ["JWT_ALGORITHM"]
 SECRET_KEY = os.environ["JWT_SECRET_KEY"]
 
 app = Flask(__name__)
-CORS(app, origins=["http://localhost:5173"])
+CORS(app, origins=["http://localhost:5173", "http://localhost"])
 
 # TODO A way to remove inactive sessions.
 sessions = {}
@@ -56,6 +56,10 @@ def chatbot_endpoint():
         return jsonify({"error": "Session expired"}), 401
 
     prompt = request.json.get("prompt", "")
-    response = generate_response(prompt, session_id)
-    return jsonify({"response": response})
+
+    def stream_response():
+        for chunk in generate_response(prompt, session_id):
+            yield chunk
+
+    return Response(stream_response(), content_type="text/event-stream")
 

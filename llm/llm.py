@@ -13,7 +13,7 @@ import os
 load_dotenv()
 model_name = os.environ["MODEL_NAME"]
 
-llm = ChatOllama(model=model_name)
+llm = ChatOllama(model=model_name, streaming=True)
 
 system_prompt = """You are a helpful chatbot in a software project monitoring tool.\n
     You answer project members' questions on the topics of project management and software development.\n
@@ -51,17 +51,17 @@ def get_session_history(session_id: str) -> BaseChatMessageHistory:
 # See the RunnableWithMessageHistory documentation. It has nice examples on how this works.
 with_session_history = RunnableWithMessageHistory(chain, get_session_history, input_messages_key="question", history_messages_key="messages")
 
-def generate_response(prompt: str, session_id: str) -> str:
+def generate_response(prompt: str, session_id: str):
     # relevant_documents = retrieve_relevant_documents(prompt)
     # print(relevant_documents)
     # full_prompt = "\n".join(relevant_documents) + "\n" + "If the text above is not relevant to the question below, disregard it and only answer the question below. Otherwise, answer the question below based on the text provided above. Do not acknowledge this line of text." + "\n" + prompt
     config = {"configurable": {"session_id": session_id}}
-    response = with_session_history.invoke(
+    for chunk in with_session_history.stream(
         {
             "messages": messages,
             "question": prompt,
         },
         config=config,
-    )
-    return response.content
+    ):
+        yield chunk.content
 

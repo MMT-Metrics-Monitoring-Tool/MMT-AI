@@ -8,7 +8,7 @@
     <div class="input-area">
       <input v-model="input" @keydown.enter="sendMessage" :disabled="loading" placeholder="Type a message" />
       <button @click="sendMessage" :disabled="loading">
-        {{ loading ? "Masterminding an answer..." : "Send" }}
+        {{ "Send" }}
       </button>
     </div>
   </div>
@@ -50,13 +50,30 @@ const sendMessage = async () => {
   loading.value = true;
   
   try {
-    const res = await axios.post(
-      "http://localhost:5000/chat",
-      { prompt: input.value },
-      { headers: { Authorization: token.value, ContentType: "application/json" } }
-    );
-    messages.value.push({ text: res.data.response, type: "bot" });
-    // messages.value.push({ text: "\n\n\n\n n\n\n\n n\n\n\n n\n\n\n n\n\n\n n\n\n\n n\n\n\n n\n\n\n n\n\n\n ", type: "bot" });
+    const res = await fetch( "http://localhost:5000/chat", {
+      method: "POST",
+      headers: {
+        "Authorization": token.value,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ prompt: input.value }),
+    });
+    if (!res.body) return;
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let responseMessage = "";
+
+    messages.value.push({ text: responseMessage, type: "bot" });
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      console.log()
+      responseMessage += decoder.decode(value, { stream: true });
+      
+      messages.value[messages.value.length - 1] = { text: responseMessage, type: "bot" }
+    }
   } catch (error) {
     if (error.response?.status === 401) {
       alert("Session expired. Renewing token...");
