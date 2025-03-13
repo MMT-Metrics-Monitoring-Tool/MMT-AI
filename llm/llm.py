@@ -6,6 +6,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, trim
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from rag_manager import retrieve_relevant_documents
+from router import route_question
 from operator import itemgetter
 import os
 
@@ -52,10 +53,18 @@ def get_session_history(session_id: str) -> BaseChatMessageHistory:
 # See the RunnableWithMessageHistory documentation. It has nice examples on how this works.
 with_session_history = RunnableWithMessageHistory(chain, get_session_history, input_messages_key="question", history_messages_key="messages")
 
-def generate_response(prompt: str, session_id: str):
-    # relevant_documents = retrieve_relevant_documents(prompt)
-    # print(relevant_documents)
-    # full_prompt = "\n".join(relevant_documents) + "\n" + "If the text above is not relevant to the question below, disregard it and only answer the question below. Otherwise, answer the question below based on the text provided above. Do not acknowledge this line of text." + "\n" + prompt
+def generate_response(question: str, session_id: str):
+    route = route_question(question)
+    if route == "vector_database":
+        relevant_documents = retrieve_relevant_documents(question)
+        print(relevant_documents)
+        prompt = "\n".join(relevant_documents) + "\n" + "Answer the question below based on the text provided above. Do not acknowledge this line of text." + "\n" + question
+    if route == "project_database":
+        # TODO
+        prompt = question
+    else: # Using general knowledge.
+        prompt = question
+
     config = {"configurable": {"session_id": session_id}}
     for chunk in with_session_history.stream(
         {

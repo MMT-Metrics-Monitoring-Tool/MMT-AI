@@ -18,6 +18,7 @@ embedding_model = OllamaEmbeddings(model=model_name)
 urls = (
     "https://coursepages2.tuni.fi/comp-se-610/",
     "https://coursepages2.tuni.fi/comp-se-610/schedule/",
+    "https://coursepages2.tuni.fi/comp-se-610/guidelines/",
 )
 
 
