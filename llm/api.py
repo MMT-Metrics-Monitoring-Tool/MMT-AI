@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
-from flask import Flask, Response, request, jsonify
+from flask import Flask, Response, request, jsonify, abort
 from flask_cors import CORS
-from llm import generate_response
+from llm import generate_response, get_sessions
 import datetime
 import jwt
 import os
@@ -63,3 +63,13 @@ def chatbot_endpoint():
 
     return Response(stream_response(), content_type="text/event-stream")
 
+
+# Debug stuff for localhost
+def is_local_request():
+    return request.remote_addr in ("127.0.0.1", "::1")
+
+@app.route('/debug', methods = ['GET'])
+def debug_info():
+    if not is_local_request():
+        abort(403)
+    return jsonify({"session_info": get_sessions()})

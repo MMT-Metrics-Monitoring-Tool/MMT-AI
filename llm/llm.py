@@ -79,3 +79,10 @@ def generate_response(question: str, session_id: str):
     ):
         yield chunk.content
 
+
+def get_sessions():
+    store_text = ""
+    for key, value in store.items():
+        store_text += f"{key}: {value}\n"
+    return store_text
+
