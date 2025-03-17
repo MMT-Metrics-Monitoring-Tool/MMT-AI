@@ -30,3 +30,10 @@ def grade_document(question: str, document: str) -> str:
     result = chain.invoke({"question": question, "document": document})
     print(result.get("score"))
     return result.get("score")
+
+def filter_irrelevant_documents(question: str, documents: list) -> list:
+    relevant_documents = []
+    for doc in documents:
+        if grade_document(question, doc) == "yes":
+            relevant_documents.append(doc)
+    return relevant_documents

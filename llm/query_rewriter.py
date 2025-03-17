@@ -22,8 +22,8 @@ prompt_template = PromptTemplate(
 chain = prompt_template | llm
 
 
-def grade_document(question: str) -> str:
-    new_question = chain.invoke({"question": question})
-    print(new_question)
-    return new_question
+def rewrite_question(question: str) -> str:
+    response = chain.invoke({"question": question})
+    print(response)
+    return response.content
 
