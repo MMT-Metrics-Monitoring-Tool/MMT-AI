@@ -31,7 +31,7 @@ def grade_document(question: str, document: str) -> str:
     print(result.get("score"))
     return result.get("score")
 
-def filter_irrelevant_documents(question: str, documents: list) -> list:
+def filter_irrelevant_documents(question: str, documents: List[str]) -> List[str]:
     relevant_documents = []
     for doc in documents:
         if grade_document(question, doc) == "yes":

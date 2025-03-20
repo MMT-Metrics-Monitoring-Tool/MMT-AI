@@ -24,17 +24,17 @@ urls = (
 )
 
 
-def fetch_text_from_url(url):
+def fetch_text_from_url(url: str) -> str:
     response = requests.get(url)
     soup = BeautifulSoup(response.text, "html.parser")
     # print(soup.get_text(separator="\n", strip=True))
     return soup.get_text(separator="\n", strip=True)
 
-def split_to_chunks(text, chunk_size=512, overlap=64):
+def split_to_chunks(text: str, chunk_size: int=512, overlap: int=64) -> List[str]:
     splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=64)
     return splitter.split_text(text)
 
-def add_documents_from_urls():
+def add_documents_from_urls() -> None:
     for url in urls:
         text = fetch_text_from_url(url)
         chunks = split_to_chunks(text)
@@ -49,7 +49,7 @@ def add_documents_from_urls():
                 documents=[chunk]
             )
 
-def retrieve_documents(query, top_k=10):
+def retrieve_documents(query: str, top_k: int=10):
     query_embedding = embedding_model.embed_query(query)
     results = collection.query(query_embeddings=[query_embedding], n_results=top_k)
     return results["documents"][0] if "documents" in results else []

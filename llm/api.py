@@ -19,7 +19,7 @@ CORS(app, origins=["http://localhost:5173", "http://localhost"])
 sessions = {}
 
 
-def generate_jwt_token(existing_session_id=None):
+def generate_jwt_token(existing_session_id: str=None) -> str:
     session_id = existing_session_id if existing_session_id else str(uuid.uuid4())
     expiration = datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
     
