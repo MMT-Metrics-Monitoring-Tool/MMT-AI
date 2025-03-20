@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 from langchain.prompts import PromptTemplate
 from langchain_ollama import ChatOllama
 from langchain_core.output_parsers import JsonOutputParser
+from typing import List
 import os
 
 

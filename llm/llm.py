@@ -1,4 +1,4 @@
-from collections import Iterator
+from collections.abc import Iterator
 from database_connector import DatabaseConnector
 from dotenv import load_dotenv
 from langchain.prompts import ChatPromptTemplate, PromptTemplate, MessagesPlaceholder
