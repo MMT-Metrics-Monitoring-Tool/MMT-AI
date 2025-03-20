@@ -1,4 +1,5 @@
 from collections import Iterator
+from database_connector import DatabaseConnector
 from dotenv import load_dotenv
 from langchain.prompts import ChatPromptTemplate, PromptTemplate, MessagesPlaceholder
 from langchain_ollama import ChatOllama
@@ -18,6 +19,7 @@ load_dotenv()
 model_name = os.environ["MODEL_NAME"]
 
 llm = ChatOllama(model=model_name, streaming=True)
+db = DatabaseConnector()
 
 system_prompt = """You are a helpful chatbot in a software project monitoring tool.\n
     You are respectful. Do not provide inappropriate answers.\n
