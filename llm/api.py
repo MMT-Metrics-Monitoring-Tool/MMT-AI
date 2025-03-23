@@ -11,9 +11,10 @@ import uuid
 load_dotenv()
 ALGORITHM = os.environ["JWT_ALGORITHM"]
 SECRET_KEY = os.environ["JWT_SECRET_KEY"]
+MMT_HOST = os.getenv("HOST", "localhost")
 
 app = Flask(__name__)
-CORS(app, origins=["http://localhost:5173", "http://localhost"])
+CORS(app, origins=[f"http://{MMT_HOST}:5173", f"http://{MMT_HOST}"])
 
 # TODO A way to remove inactive sessions.
 sessions = {}

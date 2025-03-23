@@ -22,7 +22,7 @@ system_prompt = """You are an expert at routing a user question to a vector data
 
 prompt_template = ChatPromptTemplate.from_messages([
     ("system", system_prompt),
-    ("human", "{question}")
+    ("human", "{question}"),
 ])
 
 chain = prompt_template | llm | JsonOutputParser()

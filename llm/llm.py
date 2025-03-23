@@ -51,9 +51,9 @@ messages = [SystemMessage(system_prompt)]
 store = {}
 
 prompt_template = ChatPromptTemplate.from_messages([
-    ("system", system_prompt),
+    # ("system", system_prompt),
     MessagesPlaceholder(variable_name="messages"),
-    ("human", "{question}")
+    ("human", "{question}"),
 ])
 
 rag_prompt_template = PromptTemplate(

@@ -5,6 +5,7 @@ from langchain_ollama import OllamaEmbeddings
 from langchain_community.vectorstores import Chroma
 from typing import List
 import chromadb
+import hashlib
 import requests
 import os
 
@@ -13,7 +14,6 @@ load_dotenv()
 model_name = os.environ["MODEL_NAME"]
 
 chroma_client = chromadb.PersistentClient(path="./chroma_db")
-chroma_client.delete_collection("documents")
 collection = chroma_client.get_or_create_collection(name="documents")
 
 embedding_model = OllamaEmbeddings(model=model_name)
@@ -35,20 +35,41 @@ def split_to_chunks(text: str, chunk_size: int=512, overlap: int=64) -> List[str
     splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=64)
     return splitter.split_text(text)
 
+def doc_exists(doc_id: str) -> bool:
+    existing_data = collection.get(ids=[doc_id], include=["metadatas"]) # metadatas-arg just to minimise unnecessary returned data.
+    print(f"Existing data: {existing_data}")
+    return bool(existing_data["ids"])
+
+def add_document(doc_id: str, embedding: List[float], url: str, chunk: str) -> bool:
+    if doc_exists(doc_id):
+        return False
+    collection.add(
+        ids=[doc_id],
+        embeddings=[embedding],
+        metadatas=[{"url": url}],
+        documents=[chunk]
+    )
+    return True
+
+def generate_doc_id(url: str, chunk_index: int) -> str:
+    url_hash = hashlib.md5(url.encode()).hexdigest() # hashlib.md5 is consistent, unlike Python's hash() which has randomisation.
+    return f"{url_hash}_{chunk_index}"
+
+def process_chunks(chunks: List[str], url: str) -> None:
+    for i, chunk in enumerate(chunks):
+        doc_id = generate_doc_id(chunk, i)
+        embedding = embedding_model.embed_query(chunk)
+        result = add_document(doc_id, embedding, url, chunk)
+        if not result: # Move on to next document if a chunk has already been saved.
+            print(f"Vectorstore: Skipped existing document -> {url}")
+            return
+    print(f"Vectorstore: Document added -> {url}")
+
 def add_documents_from_urls() -> None:
     for url in urls:
         text = fetch_text_from_url(url)
         chunks = split_to_chunks(text)
-        for i, chunk in enumerate(chunks):
-            doc_id = f"{hash(url)}_{i}"
-            embedding = embedding_model.embed_query(chunk)
-
-            collection.add(
-                ids=[doc_id],
-                embeddings=[embedding],
-                metadatas=[{"url": url}],
-                documents=[chunk]
-            )
+        process_chunks(chunks, url)
 
 def retrieve_documents(query: str, top_k: int=10):
     query_embedding = embedding_model.embed_query(query)
