@@ -1,5 +1,5 @@
 from api import app
-from rag_manager import add_documents_from_urls
+from document_manager import add_documents_from_urls
 
 
 if __name__ == "__main__":

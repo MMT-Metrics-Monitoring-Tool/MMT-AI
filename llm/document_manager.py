@@ -12,11 +12,12 @@ import os
 
 load_dotenv()
 model_name = os.environ["MODEL_NAME"]
+embedding_model_name = os.environ["EMBEDDING_MODEL_NAME"]
 
 chroma_client = chromadb.PersistentClient(path="./chroma_db")
 collection = chroma_client.get_or_create_collection(name="documents")
 
-embedding_model = OllamaEmbeddings(model=model_name)
+embedding_model = OllamaEmbeddings(model=embedding_model_name)
 
 urls = (
     "https://coursepages2.tuni.fi/comp-se-610/",
@@ -31,13 +32,13 @@ def fetch_text_from_url(url: str) -> str:
     # print(soup.get_text(separator="\n", strip=True))
     return soup.get_text(separator="\n", strip=True)
 
-def split_to_chunks(text: str, chunk_size: int=512, overlap: int=64) -> List[str]:
+def split_to_chunks(text: str, chunk_size: int=512, overlap: int=128) -> List[str]:
     splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=64)
     return splitter.split_text(text)
 
 def doc_exists(doc_id: str) -> bool:
-    existing_data = collection.get(ids=[doc_id], include=["metadatas"]) # metadatas-arg just to minimise unnecessary returned data.
-    print(f"Existing data: {existing_data}")
+    existing_data = collection.get(ids=[doc_id], include=["metadatas"]) # include-arg just to minimise unnecessary returned data.
+    # print(f"Existing data: {existing_data}")
     return bool(existing_data["ids"])
 
 def add_document(doc_id: str, embedding: List[float], url: str, chunk: str) -> bool:
@@ -60,7 +61,7 @@ def process_chunks(chunks: List[str], url: str) -> None:
         doc_id = generate_doc_id(chunk, i)
         embedding = embedding_model.embed_query(chunk)
         result = add_document(doc_id, embedding, url, chunk)
-        if not result: # Move on to next document if a chunk has already been saved.
+        if not result: # Move on to next document if a chunk has already been saved. TODO What about updated documents? Purge all periodically?
             print(f"Vectorstore: Skipped existing document -> {url}")
             return
     print(f"Vectorstore: Document added -> {url}")
