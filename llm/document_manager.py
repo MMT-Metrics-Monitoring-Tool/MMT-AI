@@ -13,6 +13,8 @@ import os
 load_dotenv()
 model_name = os.environ["MODEL_NAME"]
 embedding_model_name = os.environ["EMBEDDING_MODEL_NAME"]
+chunk_size = os.getenv("EMBEDDING_CHUNK_SIZE", 256)
+chunk_overlap = os.getenv("EMBEDDING_CHUNK_OVERLAP", 64)
 
 chroma_client = chromadb.PersistentClient(path="./chroma_db")
 collection = chroma_client.get_or_create_collection(name="documents")
@@ -32,7 +34,7 @@ def fetch_text_from_url(url: str) -> str:
     # print(soup.get_text(separator="\n", strip=True))
     return soup.get_text(separator="\n", strip=True)
 
-def split_to_chunks(text: str, chunk_size: int=512, overlap: int=128) -> List[str]:
+def split_to_chunks(text: str, chunk_size: int, overlap: int) -> List[str]:
     splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=64)
     return splitter.split_text(text)
 
@@ -69,7 +71,7 @@ def process_chunks(chunks: List[str], url: str) -> None:
 def add_documents_from_urls() -> None:
     for url in urls:
         text = fetch_text_from_url(url)
-        chunks = split_to_chunks(text)
+        chunks = split_to_chunks(text, chunk_size, chunk_overlap)
         process_chunks(chunks, url)
 
 def retrieve_documents(query: str, top_k: int=10):
