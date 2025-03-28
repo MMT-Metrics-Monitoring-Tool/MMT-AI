@@ -34,8 +34,8 @@ def fetch_text_from_url(url: str) -> str:
     # print(soup.get_text(separator="\n", strip=True))
     return soup.get_text(separator="\n", strip=True)
 
-def split_to_chunks(text: str, chunk_size: int, overlap: int) -> List[str]:
-    splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=64)
+def split_to_chunks(text: str, size: int, overlap: int) -> List[str]:
+    splitter = RecursiveCharacterTextSplitter(chunk_size=size, chunk_overlap=overlap)
     return splitter.split_text(text)
 
 def doc_exists(doc_id: str) -> bool:
