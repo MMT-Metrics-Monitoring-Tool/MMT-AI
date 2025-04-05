@@ -13,18 +13,26 @@
 </template>
 
 <script setup>
-import { ref, useTemplateRef, onUpdated, onMounted } from "vue";
+import { inject, onMounted, onUpdated, ref, useTemplateRef } from "vue";
 import { marked } from "marked";
 
+/**
+ * messages contain all messages displayed in the UI.
+ * @property {String} text contains the md formatted text, which is primarily used.
+ * @property {String} rawText has text without formatting, should be used as a backup for when formatting encounters errors etc., although not strictly necessary if text exists.
+ * @property {String} type makes an distinction between "bot" and "user" messages. Used as the message elements' class to map css styles.
+ */
 const messages = ref([
   { text: "Greetings. How may I be of assistance?", rawText: "", type: "bot" }, // TODO get initial message from LLM.
 ]);
-const token = ref(null);
+const token = ref(inject("token"));
 const input = ref("");
 const loading = ref(false);
+const projectId = inject("projectId");
 const messagesContainer = useTemplateRef('messagesContainer');
 
 const startSession = async () => {
+  // const res = await fetch("http://86.50.231.103:5000/start_session", {
   const res = await fetch("http://localhost:5000/start_session", {
     method: "GET",
     headers: token.value ? { Authorization: token.value } : {}
@@ -50,13 +58,14 @@ const sendMessage = async () => {
   loading.value = true;
   
   try {
+    // const res = await fetch( "http://86.50.231.103:5000/chat", {
     const res = await fetch( "http://localhost:5000/chat", {
       method: "POST",
       headers: {
         "Authorization": token.value,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ prompt: input.value }),
+      body: JSON.stringify({ prompt: input.value, project_id: projectId }),
     });
     if (!res.body) return;
 
@@ -66,6 +75,7 @@ const sendMessage = async () => {
 
     messages.value.push({ text: responseMessage, rawText: responseMessage, type: "bot" });
 
+    // Receiving response as a stream. (UX and stuffz)
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;

@@ -11,7 +11,7 @@ import uuid
 load_dotenv()
 ALGORITHM = os.environ["JWT_ALGORITHM"]
 SECRET_KEY = os.environ["JWT_SECRET_KEY"]
-MMT_HOST = os.getenv("HOST", "localhost")
+MMT_HOST = os.getenv("HOST", "localhost") # MMT_HOST = Host of the front-end module.
 
 app = Flask(__name__)
 CORS(app, origins=[f"http://{MMT_HOST}:5173", f"http://{MMT_HOST}"])
@@ -57,9 +57,15 @@ def chatbot_endpoint():
         return jsonify({"error": "Session expired"}), 401
 
     prompt = request.json.get("prompt", "")
+    project_id = request.json.get("project_id", "")
+
+    if not prompt and prompt.isspace():
+        return jsonify({"error": "Prompt not found in request"}), 500
+    if not project_id:
+        return jsonify({"error": "Project ID not found in request"}), 500
 
     def stream_response():
-        for chunk in generate_response(prompt, session_id):
+        for chunk in generate_response(prompt, session_id, project_id):
             yield chunk
 
     return Response(stream_response(), content_type="text/event-stream")

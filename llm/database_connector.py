@@ -1,5 +1,6 @@
-from mysql.connector import Error
 from dotenv import load_dotenv
+from mysql.connector import Error
+
 import mysql.connector
 import os
 
@@ -53,16 +54,15 @@ class DatabaseConnector:
         Attempts to establish the database connection automatically if it does not exist.
         Routes queries to ~llm.database_connector.DatabaseConnector.select_query or ~llm.database_connector.DatabaseConnector.execute_query.
         """
-
         if self.connection is None:
             self.connect()
         if not self.connection:
             print(f"Query failed due to connection error.")
             return None
         if "SELECT" in query:
-            return select_query(query, params)
+            return self.select_query(query, params)
         elif any(op in query for op in ["INSERT", "UPDATE", "DELETE"]):
-            return execute_query(query, params)
+            return self.execute_query(query, params)
         # If both conditions above were false, the query is erroneous.
         print(f"Erroneous query: {query}")
         return None
@@ -72,7 +72,6 @@ class DatabaseConnector:
         
         Should not be called directly as ~llm.database_connector.DatabaseConnector.query handles the connection.
         """
-
         try:
             cursor = self.connection.cursor(dictionary=True)
             cursor.execute(query, params or ())
@@ -86,19 +85,17 @@ class DatabaseConnector:
         
         Should not be called directly as ~llm.database_connector.DatabaseConnector.query handles the connection.
         """
-
         try:
             cursor = self.connection.cursor()
             cursor.execute(query, params or ())
             self.connection.commit()
-            return cursor.rowcount()
+            return cursor.rowcount
         except Error as e:
             print(f"Error executing query: {e}")
             return None
     
     def close(self):
         """Closes the database connection."""
-
         if self.connection and self.connection.is_connected():
             self.connection.close()
             print("MariaDB connection closed.")

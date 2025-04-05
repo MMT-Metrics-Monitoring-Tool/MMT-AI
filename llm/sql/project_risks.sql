@@ -9,4 +9,4 @@ SELECT r.description,
   r.category
 FROM projects p
   INNER JOIN risks r ON r.project_id = p.id
-WHERE p.id = 22;
+WHERE p.id = %s;

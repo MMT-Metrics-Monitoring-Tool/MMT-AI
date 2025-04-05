@@ -13,8 +13,8 @@ import os
 load_dotenv()
 model_name = os.environ["MODEL_NAME"]
 embedding_model_name = os.environ["EMBEDDING_MODEL_NAME"]
-chunk_size = os.getenv("EMBEDDING_CHUNK_SIZE", 256)
-chunk_overlap = os.getenv("EMBEDDING_CHUNK_OVERLAP", 64)
+chunk_size = int(os.getenv("EMBEDDING_CHUNK_SIZE", 256))
+chunk_overlap = int(os.getenv("EMBEDDING_CHUNK_OVERLAP", 64))
 
 chroma_client = chromadb.PersistentClient(path="./chroma_db")
 collection = chroma_client.get_or_create_collection(name="documents")

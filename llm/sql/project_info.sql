@@ -3,4 +3,4 @@ SELECT p.project_name,
   p.finished_date,
   CURDATE() AS 'current_date'
 FROM projects p
-WHERE p.id = 22;
+WHERE p.id = %s;
