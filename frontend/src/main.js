@@ -12,5 +12,5 @@ export function createChatboxApp(targetElement, options) {
 // This is executed when the chatbox is run on its own (e.g. npm run dev).
 if (!window.parent || window === window.parent) {
     const targetElement = document.getElementById("app");
-    createChatboxApp(targetElement, { project_id: 22, token: null }); // Default 22 for testing. (Esan testiprojekti)
+    createChatboxApp(targetElement, { project_id: 1, token: null }); // Default 1 for evaluation without MMT front end integration.
 }
