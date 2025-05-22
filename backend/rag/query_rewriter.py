@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 from langchain.prompts import PromptTemplate
 from langchain_ollama import ChatOllama
+
 import os
 
 
@@ -23,6 +24,14 @@ chain = prompt_template | llm
 
 
 def rewrite_question(question: str) -> str:
+    """Prompts the LLM to rewrite the user question, optimised for vectorstore retrieval.
+
+    Args:
+        question (str): The user question to rewrite.
+
+    Returns:
+        str: The retrieval optimised question.
+    """
     response = chain.invoke({"question": question})
     print(response)
     return response.content

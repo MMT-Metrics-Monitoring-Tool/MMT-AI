@@ -49,10 +49,15 @@ class DatabaseConnector:
 
     def query(self, query: str, params=None):
         """General purpose database query function.
-        
         Performs any database query.
         Attempts to establish the database connection automatically if it does not exist.
-        Routes queries to ~llm.database_connector.DatabaseConnector.select_query or ~llm.database_connector.DatabaseConnector.execute_query.
+
+        Args:
+            query (str): The SQL query as a string.
+            params (_type_, optional): The parameters to use for the query. Defaults to None.
+
+        Returns:
+            _type_: A data structure containing the query results.
         """
         if self.connection is None:
             self.connect()
@@ -68,9 +73,15 @@ class DatabaseConnector:
         return None
     
     def select_query(self, query: str, params=None):
-        """Database query function for queries which do not alter the database.
-        
+        """Database query function for executing SELECT SQL queries.
         Should not be called directly as ~llm.database_connector.DatabaseConnector.query handles the connection.
+
+        Args:
+            query (str): The SQL SELECT query as a string.
+            params (_type_, optional): The parameters to use for the query. Defaults to None.
+
+        Returns:
+            _type_: A data structure containing the query results
         """
         try:
             cursor = self.connection.cursor(dictionary=True)
@@ -81,9 +92,15 @@ class DatabaseConnector:
             return None
     
     def execute_query(self, query: str, params=None):
-        """Database query function fro queries which have an effect on the database state.
-        
+        """Database query function for executing SQL queries which have an effect on the database state.
         Should not be called directly as ~llm.database_connector.DatabaseConnector.query handles the connection.
+
+        Args:
+            query (str): an SQL UPDATE, INSERT, or DELETE query as a string.
+            params (_type_, optional): The parameters to use for the query. Defaults to None.
+
+        Returns:
+            _type_: The number of rows affected.
         """
         try:
             cursor = self.connection.cursor()

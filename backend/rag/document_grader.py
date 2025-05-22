@@ -3,6 +3,7 @@ from langchain.prompts import PromptTemplate
 from langchain_ollama import ChatOllama
 from langchain_core.output_parsers import JsonOutputParser
 from typing import List
+
 import os
 
 
@@ -28,11 +29,29 @@ chain = prompt_template | llm | JsonOutputParser()
 
 
 def grade_document(question: str, document: str) -> str:
+    """Grades the relevancy of a document against a user question.
+
+    Args:
+        question (str): The question input by the user.
+        document (str): The document whose relevancy to the user question is being graded.
+
+    Returns:
+        str: The grade 'yes' or 'no', whether the document is relevant to the question.
+    """
     result = chain.invoke({"question": question, "document": document})
     print(result.get("score"))
     return result.get("score")
 
 def filter_irrelevant_documents(question: str, documents: List[str]) -> List[str]:
+    """Removes any irrelevant documents from a list based on the relevancy of the question.
+
+    Args:
+        question (str): The user question based on which to grade the relevancy of the documents.
+        documents (List[str]): The documents whose relevancy to grade.
+
+    Returns:
+        List[str]: A list containing only the relevant documents from the documents list given as argument.
+    """
     relevant_documents = []
     for doc in documents:
         if grade_document(question, doc) == "yes":

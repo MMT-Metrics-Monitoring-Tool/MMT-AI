@@ -1,7 +1,9 @@
 from dotenv import load_dotenv
 from flask import Flask, Response, request, jsonify, abort
 from flask_cors import CORS
-from llm import generate_response, get_sessions
+
+from rag.llm import generate_response, get_sessions
+
 import datetime
 import jwt
 import os
@@ -21,6 +23,14 @@ sessions = {}
 
 
 def generate_jwt_token(existing_session_id: str=None) -> str:
+    """Generates a JWT token. Tokens are used for identifying front-end sessions.
+
+    Args:
+        existing_session_id (str, optional): The existing session ID signifying the renewal of an existing token. Defaults to None.
+
+    Returns:
+        str: The generated JWT token.
+    """
     session_id = existing_session_id if existing_session_id else str(uuid.uuid4())
     expiration = datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
     
@@ -30,6 +40,11 @@ def generate_jwt_token(existing_session_id: str=None) -> str:
 
 @app.route('/start_session', methods = ['GET'])
 def start_session():
+    """Starts a new front-end session. Handles token generation or renewal.
+
+    Returns:
+        Response: A Flask response containing the new token associated with the session.
+    """
     existing_token = request.headers.get("Authorization")
 
     if existing_token:
@@ -45,6 +60,14 @@ def start_session():
 
 @app.route('/chat', methods = ['POST'])
 def chatbot_endpoint():
+    """The endpoint used for generating chatbot responses to user questions.
+
+    Returns:
+        Response: The Flask response containing the generated stream.
+
+    Yields:
+        str: A partial response to the submitted user question.
+    """
     token = request.headers.get("Authorization")
     if not token:
         return jsonify({"error": "Missing token"}), 401

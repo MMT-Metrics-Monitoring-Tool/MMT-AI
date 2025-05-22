@@ -9,11 +9,11 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from operator import itemgetter
 
-from document_grader import filter_irrelevant_documents
-from document_manager import retrieve_documents
-from query_rewriter import rewrite_question
-from query_router import route_question
-from sql_executor import get_project_data
+from database.sql_executor import get_project_data
+from rag.document_grader import filter_irrelevant_documents
+from rag.document_manager import retrieve_documents
+from rag.query_rewriter import rewrite_question
+from rag.query_router import route_question
 
 import os
 
@@ -26,7 +26,7 @@ llm = ChatOllama(
     streaming=True,
 )
 
-# TODO Read prompts from their own .txt files.
+# TODO? Read prompts from their own .txt files.
 system_prompt = """You are a helpful chatbot in a software project monitoring tool.
 You are respectful. Do not provide inappropriate answers.
 You answer project members' questions on the topics of project management and software development.
@@ -51,7 +51,7 @@ Data:
 
 rag_prompt = """Answer the question below based on the provided context below the question.
 If you do not know the answer, just say that you do not know.
-Do not try to make up an answer without based information.
+Do not try to make up an answer without factually based information.
 Question: {question}
 Context: {documents}"""
 
@@ -81,19 +81,27 @@ rag_prompt_template = PromptTemplate(
 
 chain = RunnablePassthrough.assign(messages=itemgetter("messages") | trimmer) | prompt_template | llm
 
-# This dictionary is used to save the RunnableWithMessageHistory-objects (RWMH) for each session.
+# This dictionary is used to save the RunnableWithMessageHistory-objects for each session.
 # These contain the whole LLM invokation pipeline, which can be called directly.
-# Such an approach is required because the second argument, get_session_history requires two arguments, which is not supported by RWMH.
+# Such an approach is required because the second argument, get_session_history requires two arguments, which is not supported by the Runnable.
 # With this dictionary the problem is avoided.
-# TODO implement using LangGraph and use the new 'memory' from there.
-llm_pipelines = {}
+# TODO this needs to be cleaned periodically in production use.
+# TODO implement using LangGraph and use the new and improved 'memory' from there.
+llm_runnables = {}
 
 
 def get_system_prompt_with_data(data: str) -> str:
+    """Appends the system and database prompts.
+
+    Args:
+        data (str): The data to inject into the database prompt.
+
+    Returns:
+        str: The combined prompt including data.
+    """
     return system_prompt + "\n\n" + database_prompt.format(data=data)
 
 # Store message history. Currently supports only in-memory saving.
-# NOTE: ONLY FOR A SINGLE USER FOR NOW. Should change from RunnableWithMessageHistory to LangGraph memory.
 def get_session_history(session_id: str, project_id: int=None) -> BaseChatMessageHistory:
     """Get session history for the given session ID.
 
@@ -120,8 +128,17 @@ def get_session_history(session_id: str, project_id: int=None) -> BaseChatMessag
         store[session_id].add_message(SystemMessage(combined_system_message))
     return store[session_id]
 
-def get_llm_pipeline(session_id: str, project_id: int) -> RunnableWithMessageHistory:
-    if session_id not in llm_pipelines:
+def get_llm_runnable(session_id: str, project_id: int) -> RunnableWithMessageHistory:
+    """Gets the LLM runnable object for the current session.
+
+    Args:
+        session_id (str): The session ID of the user session whose Runnable to return.
+        project_id (int): The project ID associated with the current session. Needed when creating a new Runnable.
+
+    Returns:
+        RunnableWithMessageHistory: The Runnable for the current user session.
+    """
+    if session_id not in llm_runnables:
         # See the RunnableWithMessageHistory documentation. It has nice examples on how this works.
         chain_with_session_history = RunnableWithMessageHistory(
             chain,
@@ -129,31 +146,32 @@ def get_llm_pipeline(session_id: str, project_id: int) -> RunnableWithMessageHis
             input_messages_key="question",
             history_messages_key="messages",
         )
-        llm_pipelines[session_id] = chain_with_session_history
-    return llm_pipelines[session_id]
+        llm_runnables[session_id] = chain_with_session_history
+    return llm_runnables[session_id]
 
 def generate_response(question: str, session_id: str, project_id: int) -> Iterator[str]:
-    llm_pipeline = get_llm_pipeline(session_id, project_id)
+    """Generates a chatbot response as a stream.
+
+    Args:
+        question (str): The user query.
+        session_id (str): The ID of the user's session.
+        project_id (int): The ID associated with the user's project.
+
+    Yields:
+        Iterator[str]: The generated response as a stream.
+    """
+    llm_runnable = get_llm_runnable(session_id, project_id)
     route = route_question(question)
     if route == "vector_database":
         retrieved_documents = retrieve_documents(question)
-        print("### Vector database ###")
-        print(f"### Question: {question}")
-        print(f"### Retrieved documents: {retrieved_documents}")
         # Here we determine whether the fetched documents are relevant. Irrelevant documents are removed from the list.
         relevant_documents = filter_irrelevant_documents(question, retrieved_documents)
-        print("### Document relevancy ###")
-        print(f"### Relevant documents: {relevant_documents}")
         # If the list of relevant documents is empty, iterate on the vectorstore search.
         if not relevant_documents: # TODO only one attempt at refetching documents for now.
             question = rewrite_question(question)
             relevant_documents = retrieve_documents(question)
-            print("### Vector database with question rewrite ###")
-            print(f"### Rewritten question: {question}")
-            print(f"### Retrieved documents: {relevant_documents}")
         documents_as_string = "\n".join(relevant_documents)
         prompt = rag_prompt_template.invoke({"documents": documents_as_string, "question": question}).to_string()
-        print(f"RAG PROMPT: \n{prompt}")
     else: # Using general knowledge or project data.
         prompt = question
     
@@ -164,7 +182,7 @@ def generate_response(question: str, session_id: str, project_id: int) -> Iterat
         "session_id": session_id,
         "project_id": project_id,
     }}
-    for chunk in llm_pipeline.stream(
+    for chunk in llm_runnable.stream(
         {
             "messages": messages,
             "question": prompt,
@@ -172,12 +190,4 @@ def generate_response(question: str, session_id: str, project_id: int) -> Iterat
         config=config,
     ):
         yield chunk.content
-
-
-# For debug.
-def get_sessions() -> str:
-    store_text = ""
-    for key, value in store.items():
-        store_text += f"{key}: {value}\n"
-    return store_text
 

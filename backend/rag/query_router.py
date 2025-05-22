@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 from langchain.prompts import ChatPromptTemplate
 from langchain_ollama import ChatOllama
 from langchain_core.output_parsers import JsonOutputParser
+
 import os
 
 
@@ -17,7 +18,7 @@ Use the project database for questions related to the user's project, such as ho
 The project database only has information on the project's working hours, project members' working hours, project metrics, and project risks.
 You do not need to be stringent with the keywords in the question related to these topics.
 Otherwise, use general knowledge.
-Give a binary option 'vector_database', 'project_database', or 'general_knowledge' based on the question.
+Give an option 'vector_database', 'project_database', or 'general_knowledge' based on the question.
 Return the option as JSON with a single key 'datasource' and no preamble or explanation."""
 
 prompt_template = ChatPromptTemplate.from_messages([
@@ -29,6 +30,14 @@ chain = prompt_template | llm | JsonOutputParser()
 
 
 def route_question(question: str) -> str:
+    """Routes the question to a datasource which is required to answer the question.
+
+    Args:
+        question (str): The user question.
+
+    Returns:
+        str: A JSON string containing a key 'datasource' with the value of 'vector_database', 'project_database', or 'general_knowledge'.
+    """
     result = chain.invoke({"question": question})
     print(result.get("datasource"))
     return result.get("datasource")
