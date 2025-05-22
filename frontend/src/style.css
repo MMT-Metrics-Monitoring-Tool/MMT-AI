@@ -5,7 +5,7 @@
 
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  background-color: #fffffe;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -16,17 +16,19 @@
 .chatbox {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 1rem;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   height: 90vh;
+  background: #e1e4f5;
+  border-radius: 10px;
 }
 
 .input-area {
   display: flex;
   padding: 10px;
-  border-top: 1px solid #ddd;
+  border-top: 1px solid #2e0077;
 }
 
 .messages {
@@ -50,14 +52,14 @@
 .user {
   white-space: pre-wrap;
   align-self: flex-end;
-  background: #1a1a1a;
+  background: #341f5a;
   border-bottom-right-radius: 2px;
 }
 
 .bot {
   white-space: pre-wrap;
   align-self: flex-start;
-  background: #1a1a1a;
+  background: #341f5a;
   border-bottom-left-radius: 2px;
 }
 .bot p {
@@ -76,7 +78,7 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: #341f5a;
   cursor: pointer;
   transition: border-color 0.25s;
 }
