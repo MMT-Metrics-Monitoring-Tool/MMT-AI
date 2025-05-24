@@ -39,5 +39,4 @@ def route_question(question: str) -> str:
         str: A JSON string containing a key 'datasource' with the value of 'vector_database', 'project_database', or 'general_knowledge'.
     """
     result = chain.invoke({"question": question})
-    print(result.get("datasource"))
     return result.get("datasource")

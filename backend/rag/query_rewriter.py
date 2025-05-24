@@ -33,6 +33,5 @@ def rewrite_question(question: str) -> str:
         str: The retrieval optimised question.
     """
     response = chain.invoke({"question": question})
-    print(response)
     return response.content
 

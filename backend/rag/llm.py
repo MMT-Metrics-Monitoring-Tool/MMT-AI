@@ -42,18 +42,12 @@ Do not say you have access to data which is not provided below.
 Data:
 {data}"""
 
-# rag_prompt = """Context: {documents}\n
-# Answer the question below based on the context provided above.
-# If you do not know the answer, just say that you do not know.
-# Do not try to make up an answer without based information.
-# Question: {question}
-# Answer: """
-
 rag_prompt = """Answer the question below based on the provided context below the question.
 If you do not know the answer, just say that you do not know.
 Do not try to make up an answer without factually based information.
 Question: {question}
-Context: {documents}"""
+Context: {documents}
+Answer: """
 
 # Trimming the message history, so that context length is not exceeded.
 trimmer = trim_messages(
@@ -167,7 +161,8 @@ def generate_response(question: str, session_id: str, project_id: int) -> Iterat
         # Here we determine whether the fetched documents are relevant. Irrelevant documents are removed from the list.
         relevant_documents = filter_irrelevant_documents(question, retrieved_documents)
         # If the list of relevant documents is empty, iterate on the vectorstore search.
-        if not relevant_documents: # TODO only one attempt at refetching documents for now.
+        # The search is attempted only twice, after which the system resorts to a general knowledge answer.
+        if not relevant_documents:
             question = rewrite_question(question)
             relevant_documents = retrieve_documents(question)
         documents_as_string = "\n".join(relevant_documents)
@@ -176,7 +171,6 @@ def generate_response(question: str, session_id: str, project_id: int) -> Iterat
         prompt = question
     
     sys = get_session_history(session_id, project_id)
-    print(sys.messages)
 
     config = {"configurable": {
         "session_id": session_id,

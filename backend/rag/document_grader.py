@@ -39,7 +39,6 @@ def grade_document(question: str, document: str) -> str:
         str: The grade 'yes' or 'no', whether the document is relevant to the question.
     """
     result = chain.invoke({"question": question, "document": document})
-    print(result.get("score"))
     return result.get("score")
 
 def filter_irrelevant_documents(question: str, documents: List[str]) -> List[str]:

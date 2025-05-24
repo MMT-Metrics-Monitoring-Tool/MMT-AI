@@ -32,7 +32,6 @@ const projectId = inject("projectId");
 const messagesContainer = useTemplateRef('messagesContainer');
 
 const startSession = async () => {
-  // const res = await fetch("http://86.50.231.103:5000/start_session", {
   const res = await fetch("http://localhost:5000/start_session", {
     method: "GET",
     headers: token.value ? { Authorization: token.value } : {}
@@ -75,7 +74,7 @@ const sendMessage = async () => {
 
     messages.value.push({ text: responseMessage, rawText: responseMessage, type: "bot" });
 
-    // Receiving response as a stream. (UX and stuffz)
+    // Receiving response as a stream.
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
