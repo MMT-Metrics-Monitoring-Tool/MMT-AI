@@ -7,7 +7,7 @@ import os
 
 db = DatabaseConnector()
 
-sql_path = "./sql/"
+sql_path = "./database/sql/"
 sql_files = os.listdir(sql_path)
 sql_files = [f for f in sql_files if f.endswith(".sql")]
 
