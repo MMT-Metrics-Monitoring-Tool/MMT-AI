@@ -57,7 +57,6 @@ const sendMessage = async () => {
   loading.value = true;
   
   try {
-    // const res = await fetch( "http://86.50.231.103:5000/chat", {
     const res = await fetch( "http://localhost:5000/chat", {
       method: "POST",
       headers: {
