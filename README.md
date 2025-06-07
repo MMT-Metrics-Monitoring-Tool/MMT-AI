@@ -2,8 +2,8 @@
 
 ## Description
 
-This project contains a prototype implementation of an MMT RAG chatbot system which uses project data as context.\\
-This Markdown briefly explains development-relevant matters, with more information in the related thesis.\\
+This project contains a prototype implementation of an MMT RAG chatbot system which uses project data as context.\
+This Markdown briefly explains development-relevant matters, with more information in the related thesis.\
 Currently, the RAG implementation using project data for generation is WIP, having been designed as a part of an M.Sc. (Tech) thesis. The implementation was left underway due to deficiencies in available hardware for utilizing the LLM with context from project data.
 
 ## DB Agent
