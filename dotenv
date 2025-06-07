@@ -1,0 +1,14 @@
+# Template for the required .env file. 
+
+# Ollama model names:
+MODEL_NAME=mistral-nemo
+EMBEDDING_MODEL_NAME=mxbai-embed-large
+
+# Embedding settings:
+EMBEDDING_CHUNK_SIZE=256
+EMBEDDING_CHUNK_OVERLAP=64
+
+# Check possible JWT algorithms:
+JWT_ALGORITHM=HS256
+# A pseudorandom string as secret, changeme:
+JWT_SECRET_KEY=hnLmoGOFfoPZQp2Kxjkp5bZ2

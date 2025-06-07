@@ -30,7 +30,6 @@ pox==0.3.6
 protobuf==6.31.0
 pyenchant==3.2.2
 PyJWT==2.10.1
-PyJWT==2.10.1
 pylama==8.4.1
 pyOpenSSL==25.1.0
 pytest==8.3.5
