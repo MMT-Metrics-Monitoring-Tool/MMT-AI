@@ -1,5 +1,8 @@
 # MMT-AI
 
+This is an LLM module for Metrics Monitoring Tool (MMT).\
+For the main MMT project, see https://github.com/MMT-Metrics-Monitoring-Tool/MMT.
+
 ## Description
 
 This project contains a prototype implementation of an MMT RAG chatbot system which uses project data as context.\
