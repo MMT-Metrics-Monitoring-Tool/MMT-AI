@@ -38,6 +38,7 @@ const startSession = async () => {
   });
   const data = await res.json();
   token.value = data.token;
+  localStorage.setItem("chatbot_token", data.token);
 }
 
 const scrollToBottom = () => {
