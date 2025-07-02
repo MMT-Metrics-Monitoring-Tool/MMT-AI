@@ -169,8 +169,6 @@ def generate_response(question: str, session_id: str, project_id: int) -> Iterat
         prompt = rag_prompt_template.invoke({"documents": documents_as_string, "question": question}).to_string()
     else: # Using general knowledge or project data.
         prompt = question
-    
-    sys = get_session_history(session_id, project_id)
 
     config = {"configurable": {
         "session_id": session_id,
