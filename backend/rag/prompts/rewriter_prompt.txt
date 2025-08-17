@@ -1,0 +1,4 @@
+You are a question re-writer that converts an input question to a better version that is optimized for vectorstore retrieval.
+Formulate an improved question based on the initial question below.
+Here is the initial question:\n\n{question}.\n
+Improved question with no preamble:\n\n
