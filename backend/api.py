@@ -1,3 +1,4 @@
+from cachetools import TTLCache
 from dotenv import load_dotenv
 from flask import Flask, Response, request, jsonify, abort
 from flask_cors import CORS
@@ -11,16 +12,20 @@ import uuid
 
 
 load_dotenv()
+# JWT parameters:
 ALGORITHM = os.environ["JWT_ALGORITHM"]
 SECRET_KEY = os.environ["JWT_SECRET_KEY"]
-MMT_HOST = os.getenv("HOST", "localhost") # MMT_HOST = Host of the front-end module.
+# Session settings:
+MAX_SESSIONS = os.environ["MAX_SESSIONS"]
+SESSION_TTL_SECONDS = os.environ["SESSION_TTL_SECONDS"]
+# MMT_HOST = Host of the front-end module:
+MMT_HOST = os.getenv("HOST", "localhost")
 
 app = Flask(__name__)
 CORS(app, origins=[f"http://{MMT_HOST}:5173", f"http://{MMT_HOST}"])
 
 # Keys are session IDs, values are a last seen -timestamp.
-# TODO A way to remove inactive sessions.
-sessions = {}
+sessions = TTLCache(maxsize=MAX_SESSIONS, ttl=SESSION_TTL_SECONDS)
 
 
 def generate_jwt_token(existing_session_id: str=None) -> str:
@@ -33,9 +38,11 @@ def generate_jwt_token(existing_session_id: str=None) -> str:
         str: The generated JWT token.
     """
     session_id = existing_session_id if existing_session_id else str(uuid.uuid4())
-    expiration = datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
-    
+    expiration = datetime.datetime.utcnow() + datetime.timedelta(seconds=SESSION_TTL_SECONDS)
+
+    # Set initial timestamp.
     sessions[session_id] = datetime.datetime.utcnow()
+
     token = jwt.encode({"session_id": session_id, "exp": expiration}, SECRET_KEY, algorithm=ALGORITHM)
     return token
 
@@ -76,7 +83,7 @@ def chatbot_endpoint():
     try:
         decoded = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         session_id = decoded["session_id"]
-        sessions[session_id] = datetime.datetime.utcnow() # Update last seen timestamp.
+        sessions[session_id] = datetime.datetime.utcnow() # Refresh timestamp.
     except jwt.ExpiredSignatureError:
         return jsonify({"error": "Session expired"}), 401
 
