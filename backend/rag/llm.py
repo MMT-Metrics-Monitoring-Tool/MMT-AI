@@ -1,3 +1,4 @@
+from cachetools import TTLCache
 from collections.abc import Iterator
 from dotenv import load_dotenv
 from functools import partial
@@ -19,14 +20,17 @@ import os
 
 
 load_dotenv()
-model_name = os.environ["MODEL_NAME"]
+MODEL_NAME = os.environ["MODEL_NAME"]
+MAX_SESSIONS = os.environ["MAX_SESSIONS"]
+SESSION_TTL_SECONDS = os.environ["SESSION_TTL_SECONDS"]
+SESSION_MAX_MESSAGES = os.environ["SESSION_MAX_MESSAGES"]
 
 llm = ChatOllama(
-    model=model_name,
+    model=MODEL_NAME,
     streaming=True,
 )
 
-# TODO? Read prompts from their own .txt files.
+# TODO Read prompts from their own files, allowing in-place updates.
 system_prompt = """You are a helpful chatbot in a software project monitoring tool.
 You are respectful. Do not provide inappropriate answers.
 You answer project members' questions on the topics of project management and software development.
@@ -60,7 +64,7 @@ trimmer = trim_messages(
 )
 
 messages = [SystemMessage(system_prompt)]
-store = {}
+store = TTLCache(maxsize=MAX_SESSIONS, ttl=SESSION_TTL_SECONDS)
 
 prompt_template = ChatPromptTemplate.from_messages([
     ("system", system_prompt),
@@ -75,13 +79,10 @@ rag_prompt_template = PromptTemplate(
 
 chain = RunnablePassthrough.assign(messages=itemgetter("messages") | trimmer) | prompt_template | llm
 
-# This dictionary is used to save the RunnableWithMessageHistory-objects for each session.
+# This TTLCacle is used to save the RunnableWithMessageHistory-objects for each session.
 # These contain the whole LLM invokation pipeline, which can be called directly.
 # Such an approach is required because the second argument, get_session_history requires two arguments, which is not supported by the Runnable.
-# With this dictionary the problem is avoided.
-# TODO this needs to be cleaned periodically in production use.
-# TODO implement using LangGraph and use the new and improved 'memory' from there.
-llm_runnables = {}
+llm_runnables = TTLCache(maxsize=MAX_SESSIONS, ttl=SESSION_TTL_SECONDS)
 
 
 def get_system_prompt_with_data(data: str) -> str:
@@ -95,32 +96,48 @@ def get_system_prompt_with_data(data: str) -> str:
     """
     return system_prompt + "\n\n" + database_prompt.format(data=data)
 
-# Store message history. Currently supports only in-memory saving.
+
+def create_session_history(session_id: str, project_id: int=None) -> BaseChatMessageHistory:
+    """Creates session history for the given session ID.
+
+    Stores the created history in the 'store' TTLCache. Key as session_id and value as the message history.
+    The project ID is used for creating the system prompt using project data.
+
+    Args:
+        session_id (str): ID of the session to create history for.
+        project_id (str): ID of the project to fetch database data for.
+    """
+    store[session_id] = InMemoryChatMessageHistory()
+    if not project_id: # Create system prompt without project data.
+        print(f"DEBUG: Creating message history for {session_id} without project data.")
+        store[session_id].add_message(SystemMessage(system_prompt))
+        return store[session_id]
+    print(f"DEBUG: Creating message history for {session_id}.")
+    data = get_project_data(project_id)
+    combined_system_message = get_system_prompt_with_data(data)
+    store[session_id].add_message(SystemMessage(combined_system_message))
+
+
 def get_session_history(session_id: str, project_id: int=None) -> BaseChatMessageHistory:
     """Get session history for the given session ID.
 
-    Fetches the sessions message history. Creates it if it does not exist yet.
-    The project ID is used for creating the system prompt using project data.
+    Fetches the sessions message history. Delegates history creation to create_session_history() it if it does not exist yet.
     Project ID is specifically needed for the creation of new session history.
 
     Args:
         session_id (str): ID of the session to get history for.
-        project_id (int): ID of the project to fetch database data for.
+        project_id (int): ID of the project to fetch data for if creating a new history.
 
     Returns:
         BaseChatMessageHistory: The retrieved message history of the session.
     """
     if session_id not in store:
-        store[session_id] = InMemoryChatMessageHistory()
-        if not project_id: # Create system prompt without project data.
-            print(f"DEBUG: Creating message history for {session_id} without project data.")
-            store[session_id].add_message(SystemMessage(system_prompt))
-            return store[session_id]
-        print(f"DEBUG: Creating message history for {session_id}.")
-        data = get_project_data(project_id)
-        combined_system_message = get_system_prompt_with_data(data)
-        store[session_id].add_message(SystemMessage(combined_system_message))
-    return store[session_id]
+        create_session_history(session_id, project_id)
+    history = store[session_id]
+    if len(history.messages) > SESSION_MAX_MESSAGES:
+        history.messages = history.messages[-MAX_MESSAGES:]
+    return history
+
 
 def get_llm_runnable(session_id: str, project_id: int) -> RunnableWithMessageHistory:
     """Gets the LLM runnable object for the current session.
@@ -142,6 +159,7 @@ def get_llm_runnable(session_id: str, project_id: int) -> RunnableWithMessageHis
         )
         llm_runnables[session_id] = chain_with_session_history
     return llm_runnables[session_id]
+
 
 def generate_response(question: str, session_id: str, project_id: int) -> Iterator[str]:
     """Generates a chatbot response as a stream.
