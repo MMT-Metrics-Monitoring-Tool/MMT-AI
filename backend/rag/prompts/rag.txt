@@ -1,0 +1,6 @@
+Answer the question below based on the provided context below the question.
+If you do not know the answer, just say that you do not know.
+Do not try to make up an answer without factually based information.
+Question: {question}
+Context: {documents}
+Answer: 

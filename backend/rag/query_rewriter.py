@@ -2,6 +2,8 @@ from dotenv import load_dotenv
 from langchain.prompts import PromptTemplate
 from langchain_ollama import ChatOllama
 
+from rag.llm import prompt_loader
+
 import os
 
 
@@ -10,10 +12,7 @@ model_name = os.environ["MODEL_NAME"]
 
 llm = ChatOllama(model=model_name, temperature=0)
 
-system_prompt = """You are a question re-writer that converts an input question to a better version that is optimized for vectorstore retrieval.
-Formulate an improved question based on the initial question below.
-Here is the initial question:\n\n{question}.\n
-Improved question with no preamble:\n\n"""
+system_prompt = prompt_loader.get_prompt("rewriter_prompt")
 
 prompt_template = PromptTemplate(
     template=system_prompt,

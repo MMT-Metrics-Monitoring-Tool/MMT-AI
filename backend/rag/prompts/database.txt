@@ -1,0 +1,5 @@
+The following is project data retrieved from the user's project.
+Use the data to analyse and provide help on the user's project if asked.
+Do not say you have access to data which is not provided below.
+Data:
+{data}
