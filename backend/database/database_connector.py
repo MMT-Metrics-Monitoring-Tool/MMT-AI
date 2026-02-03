@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 from mysql.connector import Error
+from typing import Any
 
 import mysql.connector
 import os
@@ -61,18 +62,20 @@ class DatabaseConnector:
         """
         if self.connection is None:
             self.connect()
-        if not self.connection:
+        conn = self.connection
+        if not conn:
             print(f"Query failed due to connection error.")
             return None
+
         if "SELECT" in query:
-            return self.select_query(query, params)
+            return self._select_query(conn, query, params)
         elif any(op in query for op in ["INSERT", "UPDATE", "DELETE"]):
-            return self.execute_query(query, params)
+            return self._execute_query(conn, query, params)
         # If both conditions above were false, the query is erroneous.
         print(f"Erroneous query: {query}")
         return None
     
-    def select_query(self, query: str, params=None):
+    def _select_query(self, conn, query: str, params: Any = None):
         """Database query function for executing SELECT SQL queries.
         Should not be called directly as ~llm.database_connector.DatabaseConnector.query handles the connection.
 
@@ -84,14 +87,14 @@ class DatabaseConnector:
             _type_: A data structure containing the query results
         """
         try:
-            cursor = self.connection.cursor(dictionary=True)
+            cursor = conn.cursor(dictionary=True)
             cursor.execute(query, params or ())
             return cursor.fetchall()
         except Error as e:
             print(f"Error executing query: {e}")
             return None
     
-    def execute_query(self, query: str, params=None):
+    def _execute_query(self, conn, query: str, params: Any = None):
         """Database query function for executing SQL queries which have an effect on the database state.
         Should not be called directly as ~llm.database_connector.DatabaseConnector.query handles the connection.
 
@@ -103,9 +106,9 @@ class DatabaseConnector:
             _type_: The number of rows affected.
         """
         try:
-            cursor = self.connection.cursor()
+            cursor = conn.cursor()
             cursor.execute(query, params or ())
-            self.connection.commit()
+            conn.commit()
             return cursor.rowcount
         except Error as e:
             print(f"Error executing query: {e}")
