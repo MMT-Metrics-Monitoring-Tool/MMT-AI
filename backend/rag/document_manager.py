@@ -1,9 +1,10 @@
 from bs4 import BeautifulSoup
+from chromadb.api.types import Include, IncludeEnum
 from dotenv import load_dotenv
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_ollama import OllamaEmbeddings
 from langchain_community.vectorstores import Chroma
-from typing import List
+from typing import Final, List, Literal, Sequence
 
 import chromadb
 import hashlib
@@ -66,7 +67,8 @@ def doc_exists(doc_id: str) -> bool:
     Returns:
         bool: True if the document is already saved, False otherwise.
     """
-    existing_data = collection.get(ids=[doc_id], include=["metadatas"]) # include-arg just to minimise unnecessary returned data.
+    include: Include = [IncludeEnum.metadatas]
+    existing_data = collection.get(ids=[doc_id], include=include) # include-arg just to minimise unnecessary returned data.
     return bool(existing_data["ids"])
 
 def add_document(doc_id: str, embedding: List[float], url: str, chunk: str) -> bool:
@@ -140,5 +142,10 @@ def retrieve_documents(query: str, top_k: int=10):
     """
     query_embedding = embedding_model.embed_query(query)
     results = collection.query(query_embeddings=[query_embedding], n_results=top_k)
-    return results["documents"][0] if "documents" in results else []
+
+    docs = results.get("documents") if "documents" in results else []
+    if not docs:
+        return []
+
+    return docs[0]
 

@@ -14,7 +14,7 @@ class PromptLoader:
         self._cache = {}
 
     def _load_file(self, filename):
-        path = os.path.join(self.prompt_dir, filename)
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.prompt_dir, filename)
         with open(path, "r", encoding="utf-8") as f:
             return f.read()
 
@@ -26,3 +26,4 @@ class PromptLoader:
         if name not in self._cache:
             self._cache[name] = self._load_file(f"{name}.txt")
         return self._cache[name]
+

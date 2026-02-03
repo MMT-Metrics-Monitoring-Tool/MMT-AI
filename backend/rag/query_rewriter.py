@@ -1,36 +1,45 @@
-from dotenv import load_dotenv
+from dataclasses import dataclass
+from typing import Any
 from langchain.prompts import PromptTemplate
 from langchain_ollama import ChatOllama
-
-from rag.llm import prompt_loader
 
 import os
 
 
-load_dotenv()
-model_name = os.environ["MODEL_NAME"]
+@dataclass(frozen=True)
+class RewriterAgent:
+    chain: Any
 
-llm = ChatOllama(model=model_name, temperature=0)
+    def rewrite_question(self, question: str) -> str:
+        """
+        Rewrites the user question optimized for retrieval.
 
-system_prompt = prompt_loader.get_prompt("rewriter_prompt")
+        Returns:
+            str: The rewritten question.
+        """
+        response = self.chain.invoke({"question": question})
+        content = getattr(response, "content", response)
 
-prompt_template = PromptTemplate(
-    template=system_prompt,
-    input_variables=["question", "generation"],
-)
-
-chain = prompt_template | llm
+        # Runtime hardening.
+        if not isinstance(content, str):
+            raise TypeError("Expected string content")
+        return content
 
 
-def rewrite_question(question: str) -> str:
-    """Prompts the LLM to rewrite the user question, optimised for vectorstore retrieval.
-
-    Args:
-        question (str): The user question to rewrite.
-
-    Returns:
-        str: The retrieval optimised question.
+def build_rewriter_agent(*, prompt_loader, model_name: str | None = None) -> RewriterAgent:
     """
-    response = chain.invoke({"question": question})
-    return response.content
+    Factory: builds the rewriter agent with injected deps.
+    """
+    model = model_name or os.environ["MODEL_NAME"]
+    llm = ChatOllama(model=model, temperature=0)
+
+    system_prompt = prompt_loader.get_prompt("rewriter_prompt")
+
+    prompt_template = PromptTemplate(
+            template=system_prompt,
+            input_variables=["question", "generation"],
+    )
+
+    chain = prompt_template | llm
+    return RewriterAgent(chain=chain)
 

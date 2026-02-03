@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import Any, List, Dict, TypedDict, cast
 
 from database.database_connector import DatabaseConnector
 
@@ -12,7 +12,7 @@ sql_files = os.listdir(sql_path)
 sql_files = [f for f in sql_files if f.endswith(".sql")]
 
 # Maps file names to a file-level description.
-file_format_mapping = {
+file_format_mapping: dict[str, str] = {
     "project_info.sql": "\nProject and general info:\n{}",
     "project_members_working_hours.sql": "\nTarget and current hours for project members:\n{}",
     "project_metrics.sql": "\nProject metrics for each week:\n{}",
@@ -21,7 +21,7 @@ file_format_mapping = {
 }
 
 # Maps risk severity and probability IDs to textual descriptions.
-risk_attribute_value_mapping = {
+risk_attribute_value_mapping: dict[int, str] = {
     0: "None",
     1: "Very Low",
     2: "Low",
@@ -31,7 +31,7 @@ risk_attribute_value_mapping = {
 }
 
 # Maps risk category IDs to textual descriptions.
-risk_category_value_mapping = {
+risk_category_value_mapping: dict[int, str] = {
     0: "Uncategorized",
     1: "Political",
     2: "Economic",
@@ -42,7 +42,7 @@ risk_category_value_mapping = {
 }
 
 # Maps risk impact IDs to textual representations.
-risk_impact_value_mapping = {
+risk_impact_value_mapping: dict[int, str] = {
     0: "Budget",
     1: "Time",
     2: "Scope",
@@ -50,21 +50,32 @@ risk_impact_value_mapping = {
 }
 
 # Maps risk status IDs to textual descriptions.
-risk_status_value_mapping = {
+risk_status_value_mapping: dict[int, str] = {
     0: "Active",
     1: "Mitigated",
     2: "Closed",
 }
 
 # Maps the metric 'overallStatus' ID values to textual descriptions.
-metrics_overall_status_mapping = {
+metrics_overall_status_mapping: dict[int, str] = {
     1: "All OK",
     2: "Minor Issues",
     3: "Severe Issues",
 }
 
+# Generic row from db.query(..., dictionary=True)
+class Row(TypedDict, total=False):
+    pass
 
-def execute_sql_file(file: str, project_id: int):
+class MetricsRow(TypedDict):
+    week: int
+    duration: float
+    meetings: int
+    description: str
+    value: float | int | str
+
+
+def execute_sql_file(file: str, project_id: int) -> list[dict[str, Any]]:
     """Opens an SQL file and executes the contained query in the connected MMT database.
 
     Args:
@@ -72,13 +83,39 @@ def execute_sql_file(file: str, project_id: int):
         project_id (int): ID of the project which to execute the query on.
     
     Returns:
-        _type_: A data structure containing the query results.
+        list[dict[str, Any]]: A data structure containing the query results.
     """
-    f = open(file, "r")
-    sql = f.read()
-    return db.query(sql, (project_id,))
+    with open(file, "r", encoding="utf-8") as f:
+        sql = f.read()
 
-def map_identifier_values(key: str, value: int) -> str:
+    result = db.query(sql, (project_id,))
+
+    if result is None:
+        return []
+
+    if isinstance(result, list):
+        return cast(list[dict[str, Any]], result)
+    return []
+
+
+def _to_int(value: Any) -> int | None:
+    """
+    Best-effort conversion to int for identifier values.
+    """
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return None
+
+
+def map_identifier_values(key: str, value: Any) -> str:
     """Maps database ID values into textual descriptions. Handles all possible mappings.
 
     Args:
@@ -88,17 +125,23 @@ def map_identifier_values(key: str, value: int) -> str:
     Returns:
         str: The textual description. If no mapping for key is found, returns the given value.
     """
-    if key in ["severity", "probability"] and value in risk_attribute_value_mapping:
-        value = risk_attribute_value_mapping[value]
-    elif key == "category" and value in risk_category_value_mapping:
-        value = risk_category_value_mapping[value]
-    elif key == "impact" and value in risk_impact_value_mapping:
-        value = risk_impact_value_mapping[value]
-    elif key == "status" and value in risk_status_value_mapping:
-        value = risk_status_value_mapping[value]
-    return value
+    int_value = _to_int(value)
+    if int_value is None:
+        return "" if value is None else str(value)
 
-def map_metrics_values(key: str, value: int) -> str:
+    if key in ("severity", "probability") and int_value in risk_attribute_value_mapping:
+        return risk_attribute_value_mapping[int_value]
+    elif key == "category" and int_value in risk_category_value_mapping:
+        return risk_category_value_mapping[int_value]
+    elif key == "impact" and int_value in risk_impact_value_mapping:
+        return risk_impact_value_mapping[int_value]
+    elif key == "status" and int_value in risk_status_value_mapping:
+        return risk_status_value_mapping[int_value]
+
+    return str(int_value)
+
+
+def map_metrics_values(key: str, value: float | int | str) -> str:
     """Maps metrics ID values into textual representations. Currently only the metric with description 'overallStatus' requires mapping.
 
     Args:
@@ -108,13 +151,24 @@ def map_metrics_values(key: str, value: int) -> str:
     Returns:
         str: The textual description. If no mapping for key is found, returns the given value formatted to zero decimal places.
     """
-    if key == "overallStatus" and value in metrics_overall_status_mapping:
-        value = metrics_overall_status_mapping[value]
-    else:
-        value = f"{value:.0f}"
-    return value
+    if key == "overallStatus":
+        int_value = _to_int(value)
+        if int_value is not None and int_value in metrics_overall_status_mapping:
+            return metrics_overall_status_mapping[int_value]
 
-def format_metrics_row(data: List[Dict]) -> str:
+    # Format numerics to 0 decimals when possible.
+    if isinstance(value, (int, float)):
+        return f"{value:.0f}"
+    # If string, attempt parsing.
+    if isinstance(value, str):
+        try:
+            num = float(value)
+            return f"{num:.0f}"
+        except ValueError:
+            return value
+
+
+def format_metrics_row(data: List[MetricsRow]) -> str:
     """Formats results from the project metrics query.
 
     Args:
@@ -123,18 +177,28 @@ def format_metrics_row(data: List[Dict]) -> str:
     Returns:
         str: Formatted data.
     """
-    formatted_data = []
+    formatted_data: list[str] = []
     latest_week_num = 0
+
     for row in data:
-        week_num = int(row.get("week"))
-        if (week_num > latest_week_num): # Differing formatting for the first row of each week, containing week num, working hours, and meetings.
-            formatted_data.append(f"Metrics for week {row.get("week")}, working hours: {row.get("duration"):.1f}, meetings: {row.get("meetings")}")
+        week_num = row["week"]
+
+        # Differing formatting for the first row of each week, containing week num, working hours, and meetings.
+        if (week_num > latest_week_num):
+            formatted_data.append(
+                    f"Metrics for week {row['week']}, "
+                    f"working hours: {row['duration']:.1f}, "
+                    f"meetings: {row['meetings']}"
+            )
             latest_week_num = week_num
-        mapped_value = map_metrics_values(row.get("description"), row.get("value"))
-        formatted_data.append(f"{row.get("description")}: {mapped_value}")
+
+        mapped_value = map_metrics_values(row["description"], row["value"])
+        formatted_data.append(f"{row['description']}: {mapped_value}")
+
     return "\n".join(formatted_data)
 
-def format_generic_data(file: str, data: List[Dict]) -> str:
+
+def format_generic_data(file: str, data: list[dict[str, Any]]) -> str:
     """Formats results from an SQL query. Handles all nested formatting.
 
     Args:
@@ -145,16 +209,19 @@ def format_generic_data(file: str, data: List[Dict]) -> str:
         str: Formatted data ready for writing out.
     """
     if "metrics" in file:
-        return format_metrics_row(data)
-    formatted_data = []
+        return format_metrics_row(cast(list[MetricsRow], data))
+
+    formatted_data: list[str] = []
+
     for item in data:
-        formatted_items = []
+        formatted_items: list[str] = []
         for key, value in item.items():
             # Mapping fields with numerical identifier values into textual representations.
-            value = map_identifier_values(key, value)
-            formatted_items.append(f"{key}: {value}")
+            formatted_items.append(f"{key}: {map_identifier_values(key, value)}")
         formatted_data.append(", ".join(formatted_items))
+
     return "\n".join(formatted_data)
+
 
 def format_query_results(file: str, results: List[Dict]) -> str:
     """Formats the file-level description for a specific SQL query. Handles all nested formatting.
@@ -166,7 +233,9 @@ def format_query_results(file: str, results: List[Dict]) -> str:
     Returns:
         str: The formatted query data.
     """
-    return file_format_mapping.get(file, "Data:\n{}").format(format_generic_data(file, results))
+    template = file_format_mapping.get(file, "Data:\n{}")
+    return template.format(format_generic_data(file, results))
+
 
 def get_project_data(project_id: int) -> str:
     """Returns formatted project data from all defined queries.
@@ -177,7 +246,12 @@ def get_project_data(project_id: int) -> str:
     Returns:
         str: Formatted project data.
     """
-    all_query_results = [(f, result) for (f, result) in ((f, execute_sql_file(sql_path+f, project_id)) for f in sql_files) if result]
-    formatted_data = [format_query_results(f, results) for (f, results) in all_query_results]
-    return "\n".join(formatted_data)
+    formatted_sections: list[str] = []
+
+    for f in sql_files:
+        results = execute_sql_file(os.path.join(sql_path, f), project_id)
+        if results:
+            formatted_sections.append(format_query_results(f, results))
+
+    return "\n".join(formatted_sections)
 
