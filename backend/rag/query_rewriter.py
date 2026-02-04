@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Any
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 from langchain_ollama import ChatOllama
 
 import os

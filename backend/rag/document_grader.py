@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 from langchain_ollama import ChatOllama
 from langchain_core.output_parsers import JsonOutputParser
 from typing import Any, List, Literal

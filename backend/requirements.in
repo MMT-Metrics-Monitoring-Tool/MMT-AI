@@ -1,0 +1,19 @@
+fastapi
+uvicorn[standard]
+python-dotenv
+pyjwt
+cachetools
+bs4
+mysql-connector-python
+
+langchain
+langchain-core
+langchain-community
+langchain-ollama
+
+chromadb
+
+# TODO rm after migration to FastAPI.
+flask
+flask-cors
+

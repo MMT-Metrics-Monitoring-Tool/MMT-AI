@@ -1,13 +1,11 @@
 from bs4 import BeautifulSoup
-from chromadb.api.types import Include, IncludeEnum
 from dotenv import load_dotenv
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_ollama import OllamaEmbeddings
-from langchain_community.vectorstores import Chroma
-from typing import Final, List, Literal, Sequence
+from typing import List
 
 import chromadb
 import hashlib
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 import requests
 import os
 
@@ -67,8 +65,8 @@ def doc_exists(doc_id: str) -> bool:
     Returns:
         bool: True if the document is already saved, False otherwise.
     """
-    include: Include = [IncludeEnum.metadatas]
-    existing_data = collection.get(ids=[doc_id], include=include) # include-arg just to minimise unnecessary returned data.
+    # TODO limit output to "metadatas."
+    existing_data = collection.get(ids=[doc_id])
     return bool(existing_data["ids"])
 
 def add_document(doc_id: str, embedding: List[float], url: str, chunk: str) -> bool:
