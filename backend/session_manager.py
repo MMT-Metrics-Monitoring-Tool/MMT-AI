@@ -15,11 +15,10 @@ class SessionManager:
     """A class for handling all user session data.
     This includes all user-specific overhead, such as runnables.
     """
-    def __init__(self, chain, system_prompt, database_prompt, rag_prompt, get_project_data, secret_key, algorithm):
+    def __init__(self, chain, system_prompt, database_prompt, get_project_data, secret_key, algorithm):
         self.chain = chain
         self.system_prompt = system_prompt
         self.database_prompt = database_prompt
-        self.rag_prompt = rag_prompt
         self.get_project_data = get_project_data
         self.secret_key = secret_key
         self.algorithm = algorithm

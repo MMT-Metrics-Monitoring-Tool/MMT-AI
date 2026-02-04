@@ -71,7 +71,6 @@ def build_services(*,
         chain=chain,
         system_prompt=system_prompt,
         database_prompt=database_prompt,
-        rag_prompt=rag_prompt,
         get_project_data=get_project_data_fn,
         secret_key=secret_key,
         algorithm=algorithm,
@@ -86,12 +85,6 @@ def build_services(*,
         session_manager=session_manager,
         rag_prompt_template=rag_prompt_template,
     )
-
-
-# rag_prompt_template = PromptTemplate(
-#     template=rag_prompt,
-#     input_variables=["documents", "question"],
-# )
 
 
 def generate_response(
