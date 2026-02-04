@@ -19,7 +19,7 @@ def create_app() -> Flask:
 
     # MMT_HOST = Host of the front-end module:
     MMT_HOST = os.getenv("HOST", "localhost")
-    CORS(app, origins=[f"http://{MMT_HOST}:5173", f"http://{MMT_HOST}"])
+    CORS(app, resources={r"/*": {"origins": "*"}})
 
     prompt_loader = PromptLoader(
             prompt_dir=os.getenv("PROMPT_DIR", "./prompts"),
