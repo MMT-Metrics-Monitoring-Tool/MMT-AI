@@ -1,10 +1,21 @@
-Running the backend requires Ollama to be installed and running on the system. Developed using Python 3.13.\\
+# Installation
 
-Additionally, sqlite3 >= 3.35.0 required for Chroma (Needs manual build for at least CentOS 9. Was OK out of the box on Fedora 41).
+## Dependencies
+
+Requires Python 3.13. Ollama is required for local execution.
+
+Create a virtual environment and ensure that `pip` version 25.3 is installed. Version 26 causes in-library errors (as of 2026-02-04).
+
+Install dependencies from the `requirements.txt` file.
+
+**Note:**\
+On CentOS 9, sqlite3 >= 3.35.0 was required to be manually built for Chroma. Fedora 41+ was fine OOTB.
+
+## Application
 
 Copy the contents of ```dotenv``` to ```.env```. Adjust as needed.
 
-Run simply using ```python main.py```.
+Run for development using ```python main.py```.
 
 Default context window in Ollama models is 2048 tokens. This is hardly enough for any kind of RAG, let alone using project data. 64k was used for the initial prototype implementation.\\
 You can build a model with a larger context window by (mistral-nemo used as example, on a Linux machine):
@@ -20,8 +31,8 @@ You can build a model with a larger context window by (mistral-nemo used as exam
 
 curl copy-paste for convenience:
 
-```curl localhost:5000/start_session```
+```curl localhost:8000/start_session```
 
 Copy received token into Authorization and execute:
 
-```curl localhost:5000/chat -H "Content-Type: application/json" -H "Authorization: " -d '{"prompt": "Summarize requirements collection in software engineering"}'```
+```curl localhost:8000/chat -H "Content-Type: application/json" -H "Authorization: " -d '{"prompt": "Summarize requirements collection in software engineering"}'```
