@@ -32,7 +32,7 @@ const projectId = inject("projectId");
 const messagesContainer = useTemplateRef('messagesContainer');
 
 const startSession = async () => {
-  const res = await fetch("http://localhost:5000/start_session", {
+  const res = await fetch("http://localhost:8000/start_session", {
     method: "GET",
     headers: token.value ? { Authorization: token.value } : {}
   });
@@ -58,7 +58,7 @@ const sendMessage = async () => {
   loading.value = true;
   
   try {
-    const res = await fetch( "http://localhost:5000/chat", {
+    const res = await fetch( "http://localhost:8000/chat", {
       method: "POST",
       headers: {
         "Authorization": token.value,
