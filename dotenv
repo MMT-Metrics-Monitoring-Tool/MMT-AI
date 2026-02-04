@@ -10,8 +10,8 @@ EMBEDDING_CHUNK_OVERLAP=64
 
 # Check possible JWT algorithms:
 JWT_ALGORITHM=HS256
-# A pseudorandom string as secret, changeme:
-JWT_SECRET_KEY=hnLmoGOFfoPZQp2Kxjkp5bZ2
+# A pseudorandom string as secret, min. 32 bytes recommended:
+JWT_SECRET_KEY=changeme
 
 # Session settings:
 MAX_SESSIONS = 64
