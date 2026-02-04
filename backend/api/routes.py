@@ -1,20 +1,11 @@
-from flask import Blueprint, Response, jsonify, request, current_app
+from flask import Blueprint, Response, jsonify, request, current_app, stream_with_context
 import jwt
 
 
 bp = Blueprint("api", __name__)
 
-def get_session_manager():
-    return current_app.extensions["services"].session_manager
-
-def get_generate_args():
-    ext = current_app.extensions
-    return (
-            ext["services"],
-            ext["router_agent"],
-            ext["grader_agent"],
-            ext["rewriter_agent"],
-    )
+def get_services():
+    return current_app.extensions["services"]
 
 
 @bp.route("/start_session", methods=["GET"])
@@ -25,7 +16,7 @@ def start_session():
         Response: A Flask response containing the new token associated with the session.
     """
     existing_token = request.headers.get("Authorization")
-    sm = get_session_manager()
+    sm = get_services().session_manager
 
     if existing_token:
         try:
@@ -53,7 +44,8 @@ def chatbot_endpoint():
     if not token:
         return jsonify({"error": "Missing token"}), 401
 
-    sm = get_session_manager()
+    services = get_services()
+    sm = services.session_manager
     try:
         session_id = sm.validate_jwt_token(token)
     except jwt.ExpiredSignatureError:
@@ -72,16 +64,15 @@ def chatbot_endpoint():
         return jsonify({"error": "Project ID not found"}), 400
 
     def stream_response():
-        args = get_generate_args()
         from rag.llm import generate_response
         for chunk in generate_response(
                 prompt, session_id, project_id,
-                services=args[0],
-                router_agent=args[1],
-                grader_agent=args[2],
-                rewriter_agent=args[3],
+                services=services,
+                router_agent=current_app.extensions["router_agent"],
+                grader_agent=current_app.extensions["grader_agent"],
+                rewriter_agent=current_app.extensions["rewriter_agent"],
         ):
             yield chunk
 
-    return Response(stream_response(), content_type="text/event-stream")
+    return Response(stream_with_context(stream_response()), content_type="text/event-stream")
 
