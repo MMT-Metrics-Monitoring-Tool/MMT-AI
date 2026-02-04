@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Any, cast
 from collections.abc import Iterator
 from dotenv import load_dotenv
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
 from langchain_ollama import ChatOllama
 from langchain_core.messages import trim_messages
 from langchain_core.runnables import RunnableConfig, RunnablePassthrough
