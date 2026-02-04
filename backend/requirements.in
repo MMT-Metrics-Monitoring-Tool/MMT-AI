@@ -10,6 +10,8 @@ langchain
 langchain-core
 langchain-community
 langchain-ollama
+transformers
+torch
 
 chromadb
 
