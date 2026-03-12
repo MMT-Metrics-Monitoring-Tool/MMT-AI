@@ -183,12 +183,17 @@ def format_metrics_row(data: List[MetricsRow]) -> str:
     for row in data:
         week_num = row["week"]
 
+        if week_num is None: 
+            continue
+
         # Differing formatting for the first row of each week, containing week num, working hours, and meetings.
         if (week_num > latest_week_num):
+            duration = row.get("duration") or 0.0  # Default to 0.0 if NULL
+            meetings = row.get("meetings") or 0    # Default to 0 if NULL
             formatted_data.append(
-                    f"Metrics for week {row['week']}, "
-                    f"working hours: {row['duration']:.1f}, "
-                    f"meetings: {row['meetings']}"
+                f"Metrics for week {week_num}, "
+                f"working hours: {duration:.1f}, "
+                f"meetings: {meetings}"
             )
             latest_week_num = week_num
 

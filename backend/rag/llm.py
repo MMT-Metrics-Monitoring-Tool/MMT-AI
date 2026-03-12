@@ -125,7 +125,7 @@ def generate_response(
             "project_id": project_id,
         }
     })
-    messages = sm.get_history(session_id)
+    messages = sm.get_history(session_id, project_id)
     for chunk in llm_runnable.stream(
         {
             "messages": messages,
