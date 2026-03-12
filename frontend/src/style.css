@@ -1,4 +1,4 @@
-:root {
+.mmt-ai-chat-widget {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -31,7 +31,7 @@
   border-top: 1px solid #2e0077;
 }
 
-.messages {
+.chatbox-messages {
   flex: 1;
   padding: 10px;
   overflow-y: auto;
@@ -41,7 +41,7 @@
   height: 100%;
 }
 
-.message {
+.chatbox-message {
   max-width: 75%;
   padding: 10px;
   border-radius: 15px;

@@ -1,13 +1,15 @@
 <template>
-  <div class="chatbox">
-    <div class="messages" ref="messagesContainer">
-      <div v-for="(msg, index) in messages" :key="index" :class="['message', msg.type]" v-html="msg.text"></div>
-    </div>
-    <div class="input-area">
-      <input v-model="input" @keydown.enter="sendMessage" :disabled="loading" placeholder="Type a message" />
-      <button @click="sendMessage" :disabled="loading">
-        {{ "Send" }}
-      </button>
+  <div class="mmt-ai-chat-widget"> 
+    <div class="chatbox">
+      <div class="chatbox-messages" ref="messagesContainer">
+        <div v-for="(msg, index) in messages" :key="index" :class="['chatbox-message', msg.type]" v-html="msg.text"></div>
+      </div>
+      <div class="input-area">
+        <input v-model="input" @keydown.enter="sendMessage" :disabled="loading" placeholder="Type a message" />
+        <button @click="sendMessage" :disabled="loading">
+          {{ "Send" }}
+        </button>
+      </div>
     </div>
   </div>
 </template>

@@ -9,8 +9,19 @@ export function createChatboxApp(targetElement, options) {
     app.mount(targetElement);
 }
 
+const widgetAnchor = document.getElementById("vue-chatbox-widget");
+
+if (widgetAnchor) {
+    // If found, used through CakePHP. Start using data-attributes.
+    createChatboxApp(widgetAnchor, { 
+        project_id: widgetAnchor.dataset.projectId, 
+        token: widgetAnchor.dataset.token 
+    });
+} 
+
 // This is executed when the chatbox is run on its own (e.g. npm run dev).
-if (!window.parent || window === window.parent) {
+else if (!window.parent || window === window.parent) {
     const targetElement = document.getElementById("app");
-    createChatboxApp(targetElement, { project_id: 1, token: null }); // Default 1 for evaluation without MMT front end integration.
+    createChatboxApp(targetElement, { project_id: 1, 
+																			token: "" }); // Default 1 for evaluation without MMT front end integration.
 }
