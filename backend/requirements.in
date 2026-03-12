@@ -15,7 +15,4 @@ torch
 
 chromadb
 
-# TODO rm after migration to FastAPI.
-flask
-flask-cors
 

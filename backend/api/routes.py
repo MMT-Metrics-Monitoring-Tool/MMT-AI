@@ -1,19 +1,27 @@
-from flask import Blueprint, Response, jsonify, request, current_app, stream_with_context
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 import jwt
 
 
-bp = Blueprint("api", __name__)
+router = APIRouter()
 
 def get_services():
-    return current_app.extensions["services"]
+    from main import app
+    return app.state.services
 
 
-@bp.route("/start_session", methods=["GET"])
-def start_session():
+class ChatRequest(BaseModel):
+    prompt: str
+    project_id: int
+
+
+@router.get("/start_session")
+def start_session(request: Request):
     """Starts a new front-end session. Handles token generation or renewal.
 
     Returns:
-        Response: A Flask response containing the new token associated with the session.
+        dict: A dictionary containing the new token associated with the session.
     """
     existing_token = request.headers.get("Authorization")
     sm = get_services().session_manager
@@ -22,57 +30,54 @@ def start_session():
         try:
             decoded = jwt.decode(existing_token, sm.secret_key, algorithms=[sm.algorithm])
             session_id = decoded["session_id"]
-            return jsonify({"token": sm.generate_jwt_token(session_id)})
+            return {"token": sm.generate_jwt_token(session_id)}
         except jwt.ExpiredSignatureError:
             pass
 
     token = sm.generate_jwt_token()
-    return jsonify({"token": token})
+    return {"token": token}
 
 
-@bp.route("/chat", methods=["POST"])
-def chatbot_endpoint():
+@router.post("/chat")
+def chatbot_endpoint(chat_request: ChatRequest, request: Request):
     """The endpoint used for generating chatbot responses to user questions.
 
     Returns:
-        Response: The Flask response containing the generated stream.
+        StreamingResponse: The FastAPI response containing the generated stream.
 
     Yields:
         str: A partial response to the submitted user question.
     """
     token = request.headers.get("Authorization")
     if not token:
-        return jsonify({"error": "Missing token"}), 401
+        raise HTTPException(status_code=401, detail="Missing token")
 
     services = get_services()
     sm = services.session_manager
     try:
         session_id = sm.validate_jwt_token(token)
     except jwt.ExpiredSignatureError:
-        return jsonify({"error": "Session expired"}), 401
+        raise HTTPException(status_code=401, detail="Session expired")
 
-    data = request.json
-    if data is None:
-        return jsonify({"error": "JSON data not found in request"}), 400
-
-    prompt = data.get("prompt")
-    project_id = data.get("project_id")
+    prompt = chat_request.prompt
+    project_id = chat_request.project_id
 
     if not prompt or prompt.isspace():
-        return jsonify({"error": "Prompt not found or empty"}), 400
+        raise HTTPException(status_code=400, detail="Prompt not found or empty")
     if project_id is None:
-        return jsonify({"error": "Project ID not found"}), 400
+        raise HTTPException(status_code=400, detail="Project ID not found")
 
     def stream_response():
         from rag.llm import generate_response
+        from main import app
         for chunk in generate_response(
                 prompt, session_id, project_id,
                 services=services,
-                router_agent=current_app.extensions["router_agent"],
-                grader_agent=current_app.extensions["grader_agent"],
-                rewriter_agent=current_app.extensions["rewriter_agent"],
+                router_agent=app.state.router_agent,
+                grader_agent=app.state.grader_agent,
+                rewriter_agent=app.state.rewriter_agent,
         ):
             yield chunk
 
-    return Response(stream_with_context(stream_response()), content_type="text/event-stream")
+    return StreamingResponse(stream_response(), media_type="text/event-stream")
 

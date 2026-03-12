@@ -1,11 +1,11 @@
 from dotenv import load_dotenv
-from flask import Flask
-from flask_cors import CORS
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from rag.document_grader import build_grader_agent
 from rag.llm import build_services
 from rag.prompt_loader import PromptLoader
-from api.routes import bp as api_bp
+from api.routes import router as api_router
 
 import os
 
@@ -14,29 +14,35 @@ from rag.query_router import build_router_agent
 
 load_dotenv()
 
-def create_app() -> Flask:
-    app = Flask(__name__)
+def create_app() -> FastAPI:
+    app = FastAPI()
 
     # MMT_HOST = Host of the front-end module:
     MMT_HOST = os.getenv("HOST", "localhost")
-    CORS(app, resources={r"/*": {"origins": "*"}})
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     prompt_loader = PromptLoader(
             prompt_dir=os.getenv("PROMPT_DIR", "./prompts"),
             cache_ttl_seconds=int(os.getenv("PROMPT_TTL", "30")),
     )
 
-    app.extensions["prompt_loader"] = prompt_loader
+    app.state.prompt_loader = prompt_loader
     llm_services = build_services(
             prompt_loader=prompt_loader,
             secret_key=os.environ["JWT_SECRET_KEY"],
             algorithm=os.environ["JWT_ALGORITHM"],
     )
-    app.extensions["services"] = llm_services
-    app.extensions["router_agent"] = build_router_agent(prompt_loader=prompt_loader)
-    app.extensions["grader_agent"] = build_grader_agent(prompt_loader=prompt_loader)
-    app.extensions["rewriter_agent"] = build_rewriter_agent(prompt_loader=prompt_loader)
-    app.register_blueprint(api_bp)
+    app.state.services = llm_services
+    app.state.router_agent = build_router_agent(prompt_loader=prompt_loader)
+    app.state.grader_agent = build_grader_agent(prompt_loader=prompt_loader)
+    app.state.rewriter_agent = build_rewriter_agent(prompt_loader=prompt_loader)
+    app.include_router(api_router)
 
     return app
 
