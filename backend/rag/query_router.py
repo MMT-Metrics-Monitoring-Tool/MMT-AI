@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import os
 from typing import Any, Literal
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI 
 from langchain_core.output_parsers import JsonOutputParser
 
 
@@ -34,8 +34,13 @@ def build_router_agent(*, prompt_loader, model_name: str | None = None) -> Route
     Factory: builds the routes agent with injected deps.
     """
     model = model_name or os.environ["MODEL_NAME"]
-    llm = ChatOllama(model=model, format="json", temperature=0)
-
+    llm = ChatOpenAI(
+      model=model,
+      base_url=os.environ["API_BASE_URL"],
+      api_key=os.environ["API_KEY"],
+      temperature=0,
+      model_kwargs={"response_format": {"type": "json_object"}},
+  )
     system_prompt = prompt_loader.get_prompt("router_prompt")
 
     prompt_template = ChatPromptTemplate.from_messages([

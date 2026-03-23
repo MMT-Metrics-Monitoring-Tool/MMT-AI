@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from langchain_core.prompts import PromptTemplate
-from langchain_ollama import ChatOllama
 from langchain_core.output_parsers import JsonOutputParser
 from typing import Any, List, Literal
+from langchain_openai import ChatOpenAI
 
 import os
 
@@ -35,7 +35,14 @@ def build_grader_agent(*, prompt_loader, model_name: str | None = None) -> Grade
     Factory: builds the grader agent with injected deps.
     """
     model = model_name or os.environ["MODEL_NAME"]    
-    llm = ChatOllama(model=model, format="json", temperature=0)
+    llm = ChatOpenAI(
+      model=model,
+      base_url=os.environ["API_BASE_URL"],
+      api_key=os.environ["API_KEY"],
+      temperature=0,
+      model_kwargs={"response_format": {"type": "json_object"}},
+  )
+
 
     system_prompt = prompt_loader.get_prompt("grader_prompt")
 

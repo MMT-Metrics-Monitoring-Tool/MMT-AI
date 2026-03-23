@@ -1,8 +1,19 @@
 # Template for the required .env file. 
+# Model here
+MODEL_NAME=changeme
 
-# Ollama model names:
-MODEL_NAME=mistral-nemo
-EMBEDDING_MODEL_NAME=mxbai-embed-large
+# API ENDPOINT URL
+API_BASE_URL=changeme
+
+# APIKEY here
+API_KEY=changeme
+
+# embedding model here
+EMBEDDING_MODEL_NAME=changeme 
+
+# Embedding settings:
+EMBEDDING_CHUNK_SIZE=256
+EMBEDDING_CHUNK_OVERLAP=64
 
 # Embedding settings:
 EMBEDDING_CHUNK_SIZE=256

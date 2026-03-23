@@ -9,7 +9,7 @@ mysql-connector-python
 langchain
 langchain-core
 langchain-community
-langchain-ollama
+langchain-openai
 transformers
 torch
 

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Any
 from langchain_core.prompts import PromptTemplate
-from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
 
 import os
 
@@ -30,8 +30,11 @@ def build_rewriter_agent(*, prompt_loader, model_name: str | None = None) -> Rew
     """
     Factory: builds the rewriter agent with injected deps.
     """
-    model = model_name or os.environ["MODEL_NAME"]
-    llm = ChatOllama(model=model, temperature=0)
+    MODEL_NAME = os.environ["MODEL_NAME"]
+    llm = ChatOpenAI(
+      model=MODEL_NAME,
+      base_url=os.environ["API_BASE_URL"],
+      api_key=os.environ["API_KEY"],)
 
     system_prompt = prompt_loader.get_prompt("rewriter_prompt")
 

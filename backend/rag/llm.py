@@ -3,11 +3,10 @@ from typing import Any, cast
 from collections.abc import Iterator
 from dotenv import load_dotenv
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
-from langchain_ollama import ChatOllama
 from langchain_core.messages import trim_messages
 from langchain_core.runnables import RunnableConfig, RunnablePassthrough
 from operator import itemgetter
-
+from langchain_openai import ChatOpenAI
 from database.sql_executor import get_project_data
 from rag.document_grader import GraderAgent
 from rag.document_manager import retrieve_documents
@@ -37,14 +36,17 @@ def build_services(*,
     Factory: builds the session manager. Requires the chain of the main question-answering agent, which is why this is done here.
     """
     MODEL_NAME = os.environ["MODEL_NAME"]
-    llm = ChatOllama(
-        model=MODEL_NAME,
+    llm = ChatOpenAI(
+      model=MODEL_NAME,
+      base_url=os.environ["API_BASE_URL"],
+      api_key=os.environ["API_KEY"],
+      temperature=0.7,
     )
 
     # Trimming the message history, so that context length is not exceeded.
     trimmer = trim_messages(
         strategy="last",
-        token_counter=llm,
+        token_counter=len,
         include_system=True,
         allow_partial=False,
         start_on="human",

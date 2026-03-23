@@ -1,8 +1,7 @@
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
-from langchain_ollama import OllamaEmbeddings
 from typing import List
-
+from langchain_openai import OpenAIEmbeddings
 import chromadb
 import hashlib
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -19,7 +18,11 @@ chunk_overlap = int(os.getenv("EMBEDDING_CHUNK_OVERLAP", 64))
 chroma_client = chromadb.PersistentClient(path="./chroma_db")
 collection = chroma_client.get_or_create_collection(name="documents")
 
-embedding_model = OllamaEmbeddings(model=embedding_model_name)
+embedding_model = OpenAIEmbeddings(
+      model=embedding_model_name,
+      base_url=os.environ["API_BASE_URL"],
+      api_key=os.environ["API_KEY"],
+  )
 
 # These are fetched, parsed, and saved into the vectorstore at startup.
 urls = (
