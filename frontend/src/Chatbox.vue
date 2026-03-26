@@ -1,13 +1,61 @@
 <template>
-  <div class="mmt-ai-chat-widget"> 
+  <div class="mmt-ai-chat-widget">
     <div class="chatbox">
       <div class="chatbox-messages" ref="messagesContainer">
-        <div v-for="(msg, index) in messages" :key="index" :class="['chatbox-message', msg.type]" v-html="msg.text"></div>
+        <div
+          v-for="(msg, index) in messages"
+          :key="index"
+          :class="['chatbox-message', msg.type]"
+          v-html="msg.text"
+        ></div>
+      </div>
+
+      <div class="quick-questions-panel">
+        <div v-if="!selectedCategory" class="quick-questions-row" role="list">
+          <button
+            v-for="(category, index) in questionCategories"
+            :key="index"
+            type="button"
+            class="question-chip category-chip"
+            :disabled="loading"
+            @click="selectedCategory = category"
+          >
+            {{ category }}
+          </button>
+        </div>
+
+        <div v-else class="quick-questions-row question-mode" role="list">
+          <button
+            v-for="(question, index) in categorizedQuestions[selectedCategory]"
+            :key="index"
+            type="button"
+            class="question-chip"
+            :disabled="loading"
+            @click="sendMessage(question)"
+          >
+            {{ question }}
+          </button>
+
+          <button
+            type="button"
+            class="question-chip back-chip"
+            aria-label="Go back to category selection"
+            :disabled="loading"
+            @click="selectedCategory = ''"
+          >
+            Go back
+          </button>
+        </div>
       </div>
       <div class="input-area">
-        <input v-model="input" @keydown.enter="sendMessage" :disabled="loading" placeholder="Type a message" />
-        <button @click="sendMessage" :disabled="loading">
-          {{ "Send" }}
+        <input
+          v-model="input"
+          @keydown.enter="sendMessage()"
+          :disabled="loading"
+          placeholder="Type a message"
+        />
+        <button @click="sendMessage()" :disabled="loading">
+          Send
         </button>
       </div>
     </div>
@@ -17,6 +65,10 @@
 <script setup>
 import { inject, onMounted, onUpdated, ref, useTemplateRef } from "vue";
 import { marked } from "marked";
+import categorizedQuestions from "./categorizedQuestions.json";
+
+const questionCategories = Object.keys(categorizedQuestions);
+const selectedCategory = ref("");
 
 /**
  * messages contain all messages displayed in the UI.
@@ -53,10 +105,12 @@ onMounted(startSession);
 
 onUpdated(scrollToBottom);
 
-const sendMessage = async () => {
-  if (!input.value.trim() || !token.value) return;
+const sendMessage = async (questionText = null) => {
+  const textToSend = questionText ?? input.value;
+
+  if (!textToSend.trim() || !token.value || loading.value) return;
   
-  messages.value.push({ text: input.value, rawText: input.value, type: "user" });
+  messages.value.push({ text: textToSend, rawText: textToSend, type: "user" });
   loading.value = true;
   
   try {
@@ -66,7 +120,7 @@ const sendMessage = async () => {
         "Authorization": token.value,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ prompt: input.value, project_id: projectId }),
+      body: JSON.stringify({ prompt: textToSend, project_id: projectId }),
     });
     if (!res.body) return;
 
@@ -80,7 +134,6 @@ const sendMessage = async () => {
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
-      console.log()
       responseMessage += decoder.decode(value, { stream: true });
       
       messages.value[messages.value.length - 1] = {
@@ -93,7 +146,7 @@ const sendMessage = async () => {
     if (error.response?.status === 401) {
       alert("Session expired. Renewing token...");
       await startSession();
-      await sendMessage();
+      await sendMessage(textToSend);
     }
     console.error("Error calling LLM: ", error);
     messages.value.push({ text: "Error: Could not connect to the LLM.", type: "bot" });

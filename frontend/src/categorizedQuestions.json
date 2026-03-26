@@ -1,0 +1,15 @@
+{
+  "Course matters": [
+    "What are the next project milestones?",
+    "What deliverables are due soon for the course?"
+  ],
+  "Hours": [
+    "How many hours have been logged this month?",
+    "Are logged hours aligned with the planned effort?"
+  ],
+  "Risks": [
+    "List all the project risks?",
+    "Which risk is most likely to impact this project?",
+    "What mitigation action should we do?"
+  ]
+}
