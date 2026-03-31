@@ -1,7 +1,6 @@
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from typing import List
-from langchain_openai import OpenAIEmbeddings
 import chromadb
 import hashlib
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -18,11 +17,29 @@ chunk_overlap = int(os.getenv("EMBEDDING_CHUNK_OVERLAP", 64))
 chroma_client = chromadb.PersistentClient(path="./chroma_db")
 collection = chroma_client.get_or_create_collection(name="documents")
 
-embedding_model = OpenAIEmbeddings(
-      model=embedding_model_name,
-      base_url=os.environ["API_BASE_URL"],
-      api_key=os.environ["API_KEY"],
-  )
+class _SimpleEmbeddings:
+    def __init__(self, base_url: str, api_key: str, model: str):
+        self._base_url = base_url.rstrip("/")
+        self._api_key = api_key
+        self._model = model
+
+    def embed_query(self, text: str) -> List[float]:
+        response = requests.post(
+            f"{self._base_url}/embeddings",
+            headers={"Authorization": f"Bearer {self._api_key}", "Content-Type": "application/json"},
+            json={"model": self._model, "input": text},
+        )
+        response.raise_for_status()
+        return response.json()["data"][0]["embedding"]
+
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        return [self.embed_query(t) for t in texts]
+
+embedding_model = _SimpleEmbeddings(
+    base_url=os.environ["API_BASE_URL"],
+    api_key=os.environ["API_KEY"],
+    model=embedding_model_name,
+)
 
 # These are fetched, parsed, and saved into the vectorstore at startup.
 urls = (
@@ -144,9 +161,5 @@ def retrieve_documents(query: str, top_k: int=10):
     query_embedding = embedding_model.embed_query(query)
     results = collection.query(query_embeddings=[query_embedding], n_results=top_k)
 
-    docs = results.get("documents") if "documents" in results else []
-    if not docs:
-        return []
-
-    return docs[0]
-
+    docs = results.get("documents", [])
+    return docs[0] if docs else []
