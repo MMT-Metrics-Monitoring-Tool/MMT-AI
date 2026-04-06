@@ -1,19 +1,12 @@
 # Template for the required .env file. 
-# Model here
+# Model:
 MODEL_NAME=changeme
 
-# API ENDPOINT URL
+# API ENDPOINT:
 API_BASE_URL=changeme
 
-# APIKEY here
+# API-Key:
 API_KEY=changeme
-
-# embedding model here
-EMBEDDING_MODEL_NAME=changeme 
-
-# Embedding settings:
-EMBEDDING_CHUNK_SIZE=256
-EMBEDDING_CHUNK_OVERLAP=64
 
 # Embedding settings:
 EMBEDDING_CHUNK_SIZE=256
