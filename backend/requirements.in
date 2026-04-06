@@ -12,6 +12,7 @@ langchain-community
 langchain-openai
 transformers
 torch
+sentence-transformers
 
 chromadb
 

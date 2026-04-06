@@ -1,5 +1,6 @@
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
+from sentence_transformers import SentenceTransformer
 from typing import List
 import chromadb
 import hashlib
@@ -10,36 +11,24 @@ import os
 
 load_dotenv()
 model_name = os.environ["MODEL_NAME"]
-embedding_model_name = os.environ["EMBEDDING_MODEL_NAME"]
+embedding_model_name = "all-MiniLM-L6-v2"
 chunk_size = int(os.getenv("EMBEDDING_CHUNK_SIZE", 256))
 chunk_overlap = int(os.getenv("EMBEDDING_CHUNK_OVERLAP", 64))
 
 chroma_client = chromadb.PersistentClient(path="./chroma_db")
 collection = chroma_client.get_or_create_collection(name="documents")
 
-class _SimpleEmbeddings:
-    def __init__(self, base_url: str, api_key: str, model: str):
-        self._base_url = base_url.rstrip("/")
-        self._api_key = api_key
-        self._model = model
+class _SentenceTransformerEmbeddings:
+    def __init__(self, model_name: str):
+        self._model = SentenceTransformer(model_name)
 
     def embed_query(self, text: str) -> List[float]:
-        response = requests.post(
-            f"{self._base_url}/embeddings",
-            headers={"Authorization": f"Bearer {self._api_key}", "Content-Type": "application/json"},
-            json={"model": self._model, "input": text},
-        )
-        response.raise_for_status()
-        return response.json()["data"][0]["embedding"]
+        return self._model.encode(text).tolist()
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
-        return [self.embed_query(t) for t in texts]
+        return self._model.encode(texts).tolist()
 
-embedding_model = _SimpleEmbeddings(
-    base_url=os.environ["API_BASE_URL"],
-    api_key=os.environ["API_KEY"],
-    model=embedding_model_name,
-)
+embedding_model = _SentenceTransformerEmbeddings(model_name=embedding_model_name)
 
 # These are fetched, parsed, and saved into the vectorstore at startup.
 urls = (
