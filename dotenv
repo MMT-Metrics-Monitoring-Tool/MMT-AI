@@ -21,3 +21,23 @@ JWT_SECRET_KEY=changeme
 MAX_SESSIONS = 64
 SESSION_TTL_SECONDS = 1800
 SESSION_MAX_MESSAGES = 50
+
+# APP settings
+APP_HOST=0.0.0.0
+HOST=localhost
+PORT=8000
+RELOAD=false
+PROMPT_DIR=prompts
+PROMPT_TTL=30
+
+# Embedding of documents (coursedata)
+LOAD_STARTUP_DOCUMENTS=true
+
+# Database settings:
+# DB_HOST is the database host address. For Docker, use the database
+# container service name or network alias on the same Docker network as the backend.
+DB_HOST=host.docker.internal
+DB_PORT=3306
+DB_USER=my_app
+DB_PASS=secret
+DB_NAME=my_app
