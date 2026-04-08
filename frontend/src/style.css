@@ -4,17 +4,22 @@
   font-weight: 400;
   color-scheme: light;
   color: rgba(255, 255, 255, 0.87);
-  background-color: #fffffe;
+  background-color: transparent;
   width: 100%;
+  min-width: 0;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  isolation: isolate;
 }
 
 #vue-chatbox-widget {
+  display: block;
+  flex: 1 1 auto;
   width: 100%;
+  max-width: 100%;
   min-width: 0;
 }
 
@@ -24,39 +29,46 @@
 }
 
 .mmt-ai-chat-widget .chatbox {
-  max-width: 1280px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   margin: 0 auto;
-  padding: 1rem;
+  padding: 0.9rem;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  height: 70vh;
+  height: clamp(360px, 70vh, 720px);
   background: #e1e4f5;
-  border-radius: 10px;
+  border-radius: 8px;
 }
 
 .mmt-ai-chat-widget .input-area {
   display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
   padding: 10px;
   border-top: 1px solid #2e0077;
 }
 
 .mmt-ai-chat-widget .chatbox-messages {
   flex: 1;
+  min-height: 0;
+  min-width: 0;
   padding: 10px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  height: 100%;
 }
 
 .mmt-ai-chat-widget .chatbox-message {
   max-width: 75%;
   padding: 10px;
-  border-radius: 15px;
+  border-radius: 8px;
   white-space: pre-wrap;
   word-wrap: break-word;
+  overflow-wrap: anywhere;
 }
 
 .mmt-ai-chat-widget .user {
@@ -86,10 +98,12 @@
   border-top-right-radius: 5px;
   border-bottom-right-radius: 5px;
   border: 1px solid transparent;
+  margin: 0;
   padding: 0.6em 1.2em;
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
+  line-height: 1.5;
   background-color: #341f5a;
   color: #ffffff;
   cursor: pointer;
@@ -101,12 +115,23 @@
 }
 
 .mmt-ai-chat-widget input {
-  flex: 1;
+  all: unset;
+  box-sizing: border-box;
+  display: block;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
   border-top-left-radius: 5px;
   border-bottom-left-radius: 5px;
   border: 1px solid transparent;
+  margin: 0;
   padding: 0.6em 1.2em;
+  font: inherit;
+  line-height: 1.5;
+  color: #111111;
+  background-color: #ffffff;
   outline: none;
+  appearance: none;
 }
 
 .mmt-ai-chat-widget input:focus {
@@ -114,12 +139,16 @@
 }
 
 .mmt-ai-chat-widget .question-chip {
-  border-radius: 999px;
+  justify-content: flex-start;
+  border-radius: 8px;
   border: 1px solid #ccc;
   background: #ffffff;
   color: #000000;
+  max-width: 100%;
   padding: 0.5rem 0.8rem;
   line-height: 1.2;
+  text-align: left;
+  overflow-wrap: anywhere;
 }
 
 .mmt-ai-chat-widget .question-chip:hover {
@@ -135,25 +164,34 @@
 .mmt-ai-chat-widget .quick-questions-panel {
   border-top: 1px solid #2e0077;
   padding: 10px;
+  min-width: 0;
 }
 
 .mmt-ai-chat-widget .quick-questions-row {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 0.5rem;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: visible;
   padding: 0;
   scrollbar-width: thin;
 }
 
 .mmt-ai-chat-widget .quick-questions-row.question-mode {
   align-items: center;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
 }
 
 .mmt-ai-chat-widget .quick-questions-row .question-chip {
+  flex: 0 1 auto;
+  white-space: normal;
+}
+
+.mmt-ai-chat-widget .quick-questions-row.question-mode .question-chip {
   flex: 0 0 auto;
-  white-space: nowrap;
+  max-width: min(32rem, 85%);
 }
 
 .mmt-ai-chat-widget .quick-questions-row .category-chip {
