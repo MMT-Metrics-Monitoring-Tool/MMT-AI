@@ -1,6 +1,7 @@
-Answer the question below based on the provided context below the question.
-If you do not know the answer, just say that you do not know.
-Do not try to make up an answer without factually based information.
+<context>
+{documents}
+</context>
+
 Question: {question}
-Context: {documents}
-Answer: 
+
+Find the exact line or entry in the context that answers this question. Base your answer strictly on that line — do not use any knowledge outside the context for course facts.

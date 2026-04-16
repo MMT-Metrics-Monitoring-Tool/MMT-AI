@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Any
-from langchain_core.prompts import PromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
 import os
@@ -30,18 +30,18 @@ def build_rewriter_agent(*, prompt_loader, model_name: str | None = None) -> Rew
     """
     Factory: builds the rewriter agent with injected deps.
     """
-    MODEL_NAME = os.environ["MODEL_NAME"]
+    model = model_name or os.environ["MODEL_NAME"]
     llm = ChatOpenAI(
-      model=MODEL_NAME,
+      model=model,
       base_url=os.environ["API_BASE_URL"],
       api_key=os.environ["API_KEY"],)
 
     system_prompt = prompt_loader.get_prompt("rewriter_prompt")
 
-    prompt_template = PromptTemplate(
-            template=system_prompt,
-            input_variables=["question", "generation"],
-    )
+    prompt_template = ChatPromptTemplate.from_messages([
+        ("system", system_prompt),
+        ("human", "{question}"),
+    ])
 
     chain = prompt_template | llm
     return RewriterAgent(chain=chain)

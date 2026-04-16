@@ -44,13 +44,15 @@ def build_services(*,
     )
 
     # Trimming the message history, so that context length is not exceeded.
+    # token_counter uses a character-based approximation (~4 chars per token).
+    # max_tokens is conservative to leave headroom for the system prompt, RAG documents, and response.
     trimmer = trim_messages(
         strategy="last",
-        token_counter=len,
+        token_counter=lambda msgs: sum(len(str(getattr(m, "content", ""))) // 4 for m in msgs),
         include_system=True,
         allow_partial=False,
         start_on="human",
-        max_tokens=10240, # TODO 1024*10 tokens for now. Should implement a vector database for long-term memory.
+        max_tokens=1024,
     )
 
     system_prompt = prompt_loader.get_prompt("system")
@@ -135,5 +137,6 @@ def generate_response(
         },
         config=config,
     ):
-        yield chunk.content
+        if chunk.content:
+            yield chunk.content
 

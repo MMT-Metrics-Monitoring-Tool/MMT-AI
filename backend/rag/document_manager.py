@@ -49,6 +49,9 @@ def fetch_text_from_url(url: str) -> str:
     """
     response = requests.get(url)
     soup = BeautifulSoup(response.text, "html.parser")
+    for row in soup.find_all("tr"):
+        cells = [cell.get_text(strip=True) for cell in row.find_all(["td", "th"])]
+        row.replace_with(soup.new_string("\n" + " | ".join(cells) + "\n"))
     return soup.get_text(separator="\n", strip=True)
 
 def split_to_chunks(text: str, size: int, overlap: int) -> List[str]:

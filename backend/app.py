@@ -39,9 +39,18 @@ def create_app() -> FastAPI:
             algorithm=os.environ["JWT_ALGORITHM"],
     )
     app.state.services = llm_services
-    app.state.router_agent = build_router_agent(prompt_loader=prompt_loader)
-    app.state.grader_agent = build_grader_agent(prompt_loader=prompt_loader)
-    app.state.rewriter_agent = build_rewriter_agent(prompt_loader=prompt_loader)
+    app.state.router_agent = build_router_agent(
+        prompt_loader=prompt_loader,
+        model_name=os.environ.get("ROUTER_MODEL_NAME"),
+    )
+    app.state.grader_agent = build_grader_agent(
+        prompt_loader=prompt_loader,
+        model_name=os.environ.get("GRADER_MODEL_NAME"),
+    )
+    app.state.rewriter_agent = build_rewriter_agent(
+        prompt_loader=prompt_loader,
+        model_name=os.environ.get("REWRITER_MODEL_NAME"),
+    )
     app.include_router(api_router)
 
     return app

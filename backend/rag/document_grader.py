@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from langchain_core.prompts import PromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from typing import Any, List, Literal
 from langchain_openai import ChatOpenAI
@@ -46,10 +46,10 @@ def build_grader_agent(*, prompt_loader, model_name: str | None = None) -> Grade
 
     system_prompt = prompt_loader.get_prompt("grader_prompt")
 
-    prompt_template = PromptTemplate(
-            template=system_prompt,
-            input_variables=["question", "document"],
-    )
+    prompt_template = ChatPromptTemplate.from_messages([
+        ("system", system_prompt),
+        ("human", "Document:\n{document}\n\nQuestion:\n{question}"),
+    ])
 
     chain = prompt_template | llm | JsonOutputParser()
     return GraderAgent(chain=chain)
