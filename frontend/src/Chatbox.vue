@@ -86,13 +86,19 @@ const projectId = inject("projectId");
 const messagesContainer = useTemplateRef('messagesContainer');
 
 const startSession = async () => {
-  const res = await fetch("http://localhost:8000/start_session", {
+  if (token.value) {
+    localStorage.setItem("chatbot_token", token.value);
+  }
+  else {
+    const res = await fetch("http://localhost:8000/start_session", {
     method: "GET",
     headers: token.value ? { Authorization: token.value } : {}
-  });
-  const data = await res.json();
-  token.value = data.token;
-  localStorage.setItem("chatbot_token", data.token);
+    });
+    const data = await res.json();
+    token.value = data.token;
+    localStorage.setItem("chatbot_token", data.token);
+      
+  }
 }
 
 const scrollToBottom = () => {
@@ -122,7 +128,33 @@ const sendMessage = async (questionText = null) => {
       },
       body: JSON.stringify({ prompt: textToSend, project_id: projectId }),
     });
-    if (!res.body) return;
+
+    if (res.status === 401) {
+      
+      window.top.postMessage("AUTH_EXPIRED_SIGNAL", "*");
+
+      await new Promise((resolve) => {
+        const handleMessage = (event) => {
+          if (event.data && event.data.type === 'NEW_TOKEN') {
+            token.value = event.data.token;
+            
+            window.removeEventListener('message', handleMessage);
+            resolve();
+          }
+        };
+
+        window.addEventListener('message', handleMessage);
+      });
+
+      messages.value.push({ 
+        text: `Token expired and refreshed. Please send a new message`, 
+        rawText: ``, 
+        type: "bot" 
+      }); 
+      return;
+    }
+
+    else if (!res.body) return;
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
@@ -143,11 +175,6 @@ const sendMessage = async (questionText = null) => {
       }
     }
   } catch (error) {
-    if (error.response?.status === 401) {
-      alert("Session expired. Renewing token...");
-      await startSession();
-      await sendMessage(textToSend);
-    }
     console.error("Error calling LLM: ", error);
     messages.value.push({ text: "Error: Could not connect to the LLM.", type: "bot" });
   } finally {
