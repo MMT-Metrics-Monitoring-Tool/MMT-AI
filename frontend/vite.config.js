@@ -20,5 +20,9 @@ export default defineConfig({
         assetFileNames: `[name].[ext]`
       }
     }
-  }
+  },
+	test: {
+    globals: true,
+    environment: 'jsdom',
+  },
 })
