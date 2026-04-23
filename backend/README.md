@@ -19,7 +19,7 @@ Copy the contents of `dotenv` to `.env`. Set the following required values:
 - `API_BASE_URL` — the API endpoint URL (e.g. `https://aviary.fgl.rd.tuni.fi/api/` NOTE! Use TUNI VPN!)
 - `API_KEY` — your API key
 - `JWT_SECRET_KEY` — a pseudorandom secret string, min. 32 bytes recommended
-- `DB_HOST` — the database hostname. For Docker, use the database container service name or network alias, not `127.0.0.1`.
+- `DB_HOST` — the database hostname. For Docker, use the database container service name `mariandb`.
 - `DB_PORT` — the database port, usually `3306` for MariaDB/MySQL.
 - `DB_USER`, `DB_PASS`, `DB_NAME` — database credentials/schema.
 
@@ -31,14 +31,10 @@ Run as Tampere Universities
 
 
 ### MMT database configuration
-Open the MMT database port 3306 for development use of the AI. 
-
-Add
-```docker
-    ports:
-      - "3306:3306"
-```
-to `mariadb`-section on the `docker-compose.yaml` file. 
+For the Docker setup, keep the backend and MariaDB containers on the shared
+Docker network `mmt-shared`. The backend should use `mariadb` as `DB_HOST`,
+which allows container-to-container access without exposing MariaDB through the
+host.
 
 ## Development
 Run for development using 
@@ -52,8 +48,17 @@ The Docker image creates a virtual environment and installs `pip==25.3` before
 installing `requirements.txt`.
 
 The backend Docker setup assumes the database is reachable from the backend
-container. By default, the Makefile uses `DB_HOST=host.docker.internal`, which
-points from the container back to the host machine.
+container over the shared Docker network `mmt-shared`. 
+
+Run the backend BEFORE running MMT to make sure the network is created. 
+
+If the network is not created by backend create it: 
+```sh
+docker network create mmt-shared
+```
+
+Other containers on `mmt-shared` can reach the backend at
+`http://mmt-backend:8000`.
 
 The Makefile reads environment values from `../.env` by default. 
 

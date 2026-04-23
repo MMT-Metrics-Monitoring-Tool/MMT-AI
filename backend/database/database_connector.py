@@ -17,12 +17,12 @@ class DatabaseConnector:
         DB_PASS: Database password for the selected user.
         DB_NAME: Name of the database schema to connect to.
 
-        If any of the parameters are missing, it is assumed that an MMT instance started with "make run" is
-        running locally and default parameters are used.
+        If any of the parameters are missing, Docker-friendly MMT defaults are
+        used.
         """
         load_dotenv()
         # Defaults to MMT database testing defaults.
-        self.host = os.getenv("DB_HOST", "127.0.0.1")
+        self.host = os.getenv("DB_HOST", "mariadb")
         self.port = os.getenv("DB_PORT", "3306")
         self.user = os.getenv("DB_USER", "my_app")
         self.password = os.getenv("DB_PASS", "secret")

@@ -39,7 +39,7 @@ LOAD_STARTUP_DOCUMENTS=true
 # Database settings:
 # DB_HOST is the database host address. For Docker, use the database
 # container service name or network alias on the same Docker network as the backend.
-DB_HOST=host.docker.internal
+DB_HOST=mariadb
 DB_PORT=3306
 DB_USER=my_app
 DB_PASS=secret
