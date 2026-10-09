@@ -1,14 +1,12 @@
 from typing import Any, List, Dict, TypedDict, cast
 
-from database.database_connector import DatabaseConnector
+from database import db
 
 import os
 
 
-db = DatabaseConnector()
-
-sql_path = "./database/sql/"
-sql_files = os.listdir(sql_path)
+sql_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sql")
+sql_files = sorted(os.listdir(sql_path))
 sql_files = [f for f in sql_files if f.endswith(".sql")]
 
 # Maps file names to a file-level description.
@@ -88,14 +86,7 @@ def execute_sql_file(file: str, project_id: int) -> list[dict[str, Any]]:
     with open(file, "r", encoding="utf-8") as f:
         sql = f.read()
 
-    result = db.query(sql, (project_id,))
-
-    if result is None:
-        return []
-
-    if isinstance(result, list):
-        return cast(list[dict[str, Any]], result)
-    return []
+    return db.fetch_all(sql, (project_id,))
 
 
 def _to_int(value: Any) -> int | None:
@@ -242,21 +233,39 @@ def format_query_results(file: str, results: List[Dict]) -> str:
     return template.format(format_generic_data(file, results))
 
 
-def get_project_data(project_id: int) -> str:
-    """Returns formatted project data from all defined queries.
+def _hours_summary(row: dict[str, Any], label: str) -> str:
+    target = float(row.get("target_hours") or 0)
+    current = float(row.get("current_hours") or 0)
+    if target:
+        return f"{label}: {current:.1f} h logged of {target:.0f} h target ({current / target:.0%})"
+    return f"{label}: {current:.1f} h logged, no target set"
 
-    Args:
-        project_id (int): The project on which to execute the queries on.
 
-    Returns:
-        str: Formatted project data.
+def get_project_snapshot(project_id: int) -> str:
+    """Returns the project data for the chatbot prompt: computed summary figures first, then all sections.
+    Empty sections are stated explicitly, so the model does not have to infer that data is missing.
     """
-    formatted_sections: list[str] = []
+    results = {f: execute_sql_file(os.path.join(sql_path, f), project_id) for f in sql_files}
 
+    summary: list[str] = []
+    for row in results.get("project_working_hours.sql", []):
+        if row.get("target_hours") is not None or row.get("current_hours") is not None:
+            summary.append(_hours_summary(row, "Team hours"))
+    for row in results.get("project_members_working_hours.sql", []):
+        summary.append(_hours_summary(row, f"Member {row.get('user_id')} hours"))
+    risks = results.get("project_risks.sql", [])
+    statuses = [map_identifier_values("status", risk.get("status")) for risk in risks]
+    summary.append(
+        f"Risks: {len(risks)} recorded ({statuses.count('Active')} active, "
+        f"{statuses.count('Mitigated')} mitigated, {statuses.count('Closed')} closed)"
+    )
+    weeks = [row["week"] for row in results.get("project_metrics.sql", []) if row.get("week") is not None]
+    summary.append(f"Weekly reports: {len(set(weeks))}" + (f", latest week {max(weeks)}" if weeks else ""))
+
+    sections = ["Summary:\n" + "\n".join(summary)]
     for f in sql_files:
-        results = execute_sql_file(os.path.join(sql_path, f), project_id)
-        if results:
-            formatted_sections.append(format_query_results(f, results))
-
-    return "\n".join(formatted_sections)
-
+        if results[f]:
+            sections.append(format_query_results(f, results[f]))
+        else:
+            sections.append(file_format_mapping.get(f, "Data:\n{}").format("None recorded."))
+    return "\n".join(sections)

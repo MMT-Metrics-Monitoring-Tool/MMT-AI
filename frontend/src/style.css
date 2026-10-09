@@ -94,6 +94,35 @@
   display: none;
 }
 
+.mmt-ai-chat-widget .bot.error {
+  border: 1px solid #c0392b;
+}
+
+.mmt-ai-chat-widget .chatbox-status {
+  font-style: italic;
+  opacity: 0.75;
+}
+
+.mmt-ai-chat-widget .chatbox-feedback {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  white-space: normal;
+}
+
+.mmt-ai-chat-widget .chatbox-feedback button {
+  padding: 0.1em 0.4em;
+  border-radius: 5px;
+  font-size: 0.9em;
+  background-color: transparent;
+  opacity: 0.6;
+}
+
+.mmt-ai-chat-widget .chatbox-feedback button.selected {
+  opacity: 1;
+  border-color: #646cff;
+}
+
 .mmt-ai-chat-widget button {
   border-top-right-radius: 5px;
   border-bottom-right-radius: 5px;

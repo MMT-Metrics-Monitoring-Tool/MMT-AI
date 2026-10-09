@@ -1,3 +1,4 @@
+import hashlib
 import os
 import time
 
@@ -27,3 +28,6 @@ class PromptLoader:
             self._cache[name] = self._load_file(f"{name}.txt")
         return self._cache[name]
 
+    def get_version(self, name):
+        """Short content hash of a prompt, logged with every answer to tell prompt versions apart."""
+        return hashlib.sha256(self.get_prompt(name).encode("utf-8")).hexdigest()[:8]

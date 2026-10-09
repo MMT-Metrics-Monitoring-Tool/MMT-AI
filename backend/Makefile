@@ -9,7 +9,6 @@ endif
 
 IMAGE_NAME ?= mmt-backend:latest
 CONTAINER_NAME ?= mmt-backend
-VOLUME_NAME ?= mmt-backend-chroma
 NETWORK_NAME ?= mmt-shared
 
 APP_HOST ?= 0.0.0.0
@@ -19,7 +18,6 @@ HOST_PORT ?= $(PORT)
 RELOAD ?= false
 PROMPT_DIR ?= prompts
 PROMPT_TTL ?= 30
-LOAD_STARTUP_DOCUMENTS ?= false
 
 DB_HOST ?= mariadb
 DB_PORT ?= 3306
@@ -27,7 +25,7 @@ DB_USER ?= my_app
 DB_PASS ?= secret
 DB_NAME ?= my_app
 
-.PHONY: network run start stop clean
+.PHONY: network run start stop clean test eval
 
 network:
 	@docker network inspect $(NETWORK_NAME) >/dev/null 2>&1 || docker network create $(NETWORK_NAME) >/dev/null
@@ -51,14 +49,12 @@ run: network
 		--env RELOAD \
 		--env PROMPT_DIR \
 		--env PROMPT_TTL \
-		--env LOAD_STARTUP_DOCUMENTS \
 		--env DB_HOST \
 		--env DB_PORT \
 		--env DB_USER \
 		--env DB_PASS \
 		--env DB_NAME \
 		--publish $(HOST_PORT):$(PORT) \
-		--volume $(VOLUME_NAME):/app/chroma_db \
 		$(IMAGE_NAME)
 
 start:
@@ -70,4 +66,13 @@ stop:
 clean:
 	docker rm -f $(CONTAINER_NAME)
 	docker image rm $(IMAGE_NAME)
-	docker volume rm $(VOLUME_NAME) 
+
+# Unit tests. Needs no database, LLM or network access.
+test:
+	docker build -t $(IMAGE_NAME) .
+	docker run --rm $(IMAGE_NAME) sh -c "pip install -q -r requirements-dev.txt && python -m pytest -q -p no:cacheprovider"
+
+# Evaluation questions against the configured LLM (needs TUNI VPN for Aviary). Pass options with ARGS="--repeat 3".
+eval:
+	docker build -t $(IMAGE_NAME) .
+	docker run --rm --env-file $(ENV_FILE) --volume $(CURDIR)/evals/results:/app/evals/results $(IMAGE_NAME) python -m evals.run $(ARGS)

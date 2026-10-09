@@ -1,57 +1,51 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel
-import jwt
+from pydantic import BaseModel, Field
+from typing import Literal
 
-from database.database_connector import DatabaseConnector
+from auth import AuthError, Principal
+from database import db
+
+import json
 
 
 router = APIRouter()
-
-def get_services(request: Request):
-    return request.app.state.services
 
 
 class ChatRequest(BaseModel):
     prompt: str
     project_id: int
+    conversation_id: str | None = None
 
 
-def _check_database_connection() -> tuple[bool, str | None]:
-    """Checks whether the database connection is available.
-
-    Returns:
-        tuple[bool, str | None]: A tuple containing a success flag and an optional error message.
-    """
-    db = DatabaseConnector()
-    try:
-        db.connect()
-        connection = db.connection
-        if not connection or not connection.is_connected():
-            return False, "Database connection not available"
-
-        result = db.query("SELECT 1")
-        if result is None:
-            return False, "Database query failed"
-
-        return True, None
-    except Exception as exc:
-        return False, str(exc)
-    finally:
-        db.close()
+class FeedbackRequest(BaseModel):
+    message_id: str
+    rating: Literal[1, -1]
+    comment: str | None = Field(default=None, max_length=2000)
 
 
-def _check_llm_connection(router_agent) -> tuple[bool, str | None]:
-    """Checks whether the LLM pipeline is reachable.
+def authenticate(request: Request) -> Principal:
+    """Verifies the MMT-issued token in the Authorization header.
 
-    Returns:
-        tuple[bool, str | None]: A tuple containing a success flag and an optional error message.
+    Raises:
+        HTTPException: 401 if the token is missing, invalid or expired.
     """
     try:
-        router_agent.route_question("Health check ping")
-        return True, None
+        return request.app.state.authenticator.verify(request.headers.get("Authorization"))
+    except AuthError as exc:
+        raise HTTPException(status_code=401, detail="Session expired" if exc.expired else str(exc))
+
+
+def _sse(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+def _check(fn) -> dict:
+    try:
+        fn()
+        return {"ok": True, "error": None}
     except Exception as exc:
-        return False, str(exc)
+        return {"ok": False, "error": str(exc)}
 
 
 @router.get("/health")
@@ -61,56 +55,27 @@ def health_check(request: Request):
     Returns:
         dict: The health status payload for all checks.
     """
-    db_ok, db_error = _check_database_connection()
-    llm_ok, llm_error = _check_llm_connection(request.app.state.router_agent)
-
-    backend_ok = True
-
     checks = {
-        "backend": {
-            "ok": backend_ok,
-        },
-        "database": {
-            "ok": db_ok,
-            "error": db_error,
-        },
-        "llm": {
-            "ok": llm_ok,
-            "error": llm_error,
-        },
+        "backend": {"ok": True},
+        "database": _check(lambda: db.fetch_all("SELECT 1")),
+        "llm": _check(request.app.state.llm.ping),
     }
-
-    all_healthy = backend_ok and db_ok and llm_ok
-    payload = {
-        "status": "ok" if all_healthy else "degraded",
-        "checks": checks,
-    }
-
-    if all_healthy:
-        return payload
-    return JSONResponse(status_code=503, content=payload)
+    healthy = all(check["ok"] for check in checks.values())
+    payload = {"status": "ok" if healthy else "degraded", "checks": checks}
+    return payload if healthy else JSONResponse(status_code=503, content=payload)
 
 
 @router.get("/start_session")
 def start_session(request: Request):
-    """Starts a new front-end session. Handles token generation or renewal.
+    """Issues a development token, for running the chatbot without MMT. Disabled unless AUTH_DEV_MODE is enabled.
 
     Returns:
-        dict: A dictionary containing the new token associated with the session.
+        dict: A dictionary containing the token.
     """
-    existing_token = request.headers.get("Authorization")
-    sm = get_services(request).session_manager
-
-    if existing_token:
-        try:
-            decoded = jwt.decode(existing_token, sm.secret_key, algorithms=[sm.algorithm])
-            session_id = decoded["session_id"]
-            return {"token": sm.generate_jwt_token(session_id)}
-        except jwt.ExpiredSignatureError:
-            pass
-
-    token = sm.generate_jwt_token()
-    return {"token": token}
+    authenticator = request.app.state.authenticator
+    if not authenticator.dev_mode:
+        raise HTTPException(status_code=404, detail="Not found")
+    return {"token": authenticator.issue_dev_token()}
 
 
 @router.post("/chat")
@@ -118,40 +83,40 @@ def chatbot_endpoint(chat_request: ChatRequest, request: Request):
     """The endpoint used for generating chatbot responses to user questions.
 
     Returns:
-        StreamingResponse: The FastAPI response containing the generated stream.
-
-    Yields:
-        str: A partial response to the submitted user question.
+        StreamingResponse: Server-sent events: start, status, token (repeated), then done or error.
     """
-    token = request.headers.get("Authorization")
-    if not token:
-        raise HTTPException(status_code=401, detail="Missing token")
+    principal = authenticate(request)
+    state = request.app.state
 
-    services = get_services(request)
-    sm = services.session_manager
-    try:
-        session_id = sm.validate_jwt_token(token)
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Session expired")
+    if not principal.can_access(chat_request.project_id):
+        raise HTTPException(status_code=403, detail="No access to this project")
 
-    prompt = chat_request.prompt
-    project_id = chat_request.project_id
-
-    if not prompt or prompt.isspace():
+    prompt = chat_request.prompt.strip()
+    if not prompt:
         raise HTTPException(status_code=400, detail="Prompt not found or empty")
-    if project_id is None:
-        raise HTTPException(status_code=400, detail="Project ID not found")
+    if len(prompt) > state.max_prompt_chars:
+        raise HTTPException(status_code=413, detail=f"Prompt is longer than {state.max_prompt_chars} characters")
 
-    def stream_response():
-        from rag.llm import generate_response
-        for chunk in generate_response(
-                prompt, session_id, project_id,
-                services=services,
-                router_agent=request.app.state.router_agent,
-                grader_agent=request.app.state.grader_agent,
-                rewriter_agent=request.app.state.rewriter_agent,
-        ):
-            yield chunk
+    if not state.rate_limiter.allow(principal.user_id):
+        retry_after = state.rate_limiter.retry_after(principal.user_id)
+        raise HTTPException(
+            status_code=429, detail="Too many questions, please wait a moment", headers={"Retry-After": str(retry_after)},
+        )
 
-    return StreamingResponse(stream_response(), media_type="text/event-stream")
+    events = state.chat_service.answer(principal, chat_request.project_id, prompt, chat_request.conversation_id)
+    return StreamingResponse(
+        (_sse(event, data) for event, data in events),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
+
+@router.post("/feedback", status_code=204)
+def feedback_endpoint(feedback: FeedbackRequest, request: Request):
+    """Stores a thumbs up (1) or down (-1) for an answer. Users can only rate answers in their own conversations."""
+    principal = authenticate(request)
+    if not request.app.state.chat_service.store.save_feedback(
+            feedback.message_id, principal.user_id, feedback.rating, feedback.comment,
+    ):
+        raise HTTPException(status_code=404, detail="Message not found")
+    return Response(status_code=204)

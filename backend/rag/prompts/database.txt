@@ -1,3 +1,0 @@
-<project_data>
-{data}
-</project_data>

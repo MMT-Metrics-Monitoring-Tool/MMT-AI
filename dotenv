@@ -1,9 +1,6 @@
 # Template for the required .env file. 
-# Model names:
+# Model name:
 MODEL_NAME=qwen3-next-80b-a3b-instruct
-ROUTER_MODEL_NAME=granite4-32b
-GRADER_MODEL_NAME=granite4-32b
-REWRITER_MODEL_NAME=qwen3-next-80b-a3b-instruct
 
 # API ENDPOINT:
 API_BASE_URL=changeme
@@ -11,19 +8,33 @@ API_BASE_URL=changeme
 # API-Key:
 API_KEY=changeme
 
-# Embedding settings:
-EMBEDDING_CHUNK_SIZE=256
-EMBEDDING_CHUNK_OVERLAP=64
+# LLM settings:
+LLM_TEMPERATURE=0.3
+# Includes hidden reasoning tokens for thinking models.
+LLM_MAX_TOKENS=4000
+# Optional provider-specific request options as JSON. Turning Qwen's hidden thinking off cuts the time to the
+# first token from ~7-60 s to ~1.5 s, with equal eval results. Leave empty for models that do not support it.
+LLM_EXTRA_BODY={"chat_template_kwargs": {"enable_thinking": false}}
 
+# Authentication. MMT signs the chatbot tokens with this shared secret (see backend/README.md).
 # Check possible JWT algorithms:
 JWT_ALGORITHM=HS256
 # A pseudorandom string as secret, min. 32 bytes recommended:
 JWT_SECRET_KEY=changeme
+# Development only: enables /start_session, which issues tokens without MMT. Never enable in production.
+AUTH_DEV_MODE=false
+# Projects the development token can access:
+DEV_PROJECT_IDS=1
 
-# Session settings:
-MAX_SESSIONS=64
-SESSION_TTL_SECONDS=1800
-SESSION_MAX_MESSAGES=50
+# Chat settings:
+# Earlier messages of a conversation sent with each question:
+HISTORY_MESSAGES=10
+MAX_PROMPT_CHARS=2000
+# Questions allowed per user within the window:
+RATE_LIMIT_REQUESTS=20
+RATE_LIMIT_WINDOW_SECONDS=600
+# How often the course pages are re-fetched:
+COURSE_CONTENT_TTL=21600
 
 # APP settings
 APP_HOST=0.0.0.0
@@ -32,9 +43,8 @@ PORT=8000
 RELOAD=false
 PROMPT_DIR=prompts
 PROMPT_TTL=30
-
-# Embedding of documents (coursedata)
-LOAD_STARTUP_DOCUMENTS=true
+# Comma-separated origins allowed to call the API, e.g. the MMT address. * allows any.
+CORS_ORIGINS=*
 
 # Database settings:
 # DB_HOST is the database host address. For Docker, use the database
@@ -44,3 +54,6 @@ DB_PORT=3306
 DB_USER=my_app
 DB_PASS=secret
 DB_NAME=my_app
+DB_POOL_SIZE=5
+# Creates the chatbot_ tables in the MMT database on startup if they are missing:
+DB_AUTO_MIGRATE=true

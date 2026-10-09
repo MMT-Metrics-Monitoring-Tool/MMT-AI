@@ -11,7 +11,6 @@ WORKDIR /app
 
 RUN apt-get update \
     && apt-get install --no-install-recommends --assume-yes \
-        build-essential \
         curl \
     && rm --recursive --force /var/lib/apt/lists/*
 
