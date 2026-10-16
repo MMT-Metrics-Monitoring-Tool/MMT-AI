@@ -90,8 +90,6 @@ import DOMPurify from "dompurify";
 import categorizedQuestions from "./categorizedQuestions.json";
 import { createSseParser } from "./sse.js";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
-
 const questionCategories = Object.keys(categorizedQuestions);
 const selectedCategory = ref("");
 
@@ -112,16 +110,61 @@ const token = ref(inject("token"));
 const input = ref("");
 const loading = ref(false);
 const projectId = inject("projectId");
+// Backend address and MMT's token renewal URL, given by MMT through data attributes (see main.js).
+const apiUrl = inject("apiUrl", import.meta.env.VITE_API_URL ?? "http://localhost:8000");
+const refreshUrl = inject("refreshUrl", null);
 // Sent with each question so the backend can include earlier messages. Set by the backend's first "start" event.
 const conversationId = ref(null);
 const messagesContainer = useTemplateRef('messagesContainer');
+// True when the widget runs on its own and the backend refused /start_session because AUTH_DEV_MODE is off.
+const devModeOff = ref(false);
+const DEV_MODE_OFF_TEXT = "The chatbot is running without MMT, but the backend's AUTH_DEV_MODE is off, so it can't give out a token. Set AUTH_DEV_MODE=true in the backend's .env and restart it.";
 
+// Inside MMT the token comes from MMT. When the widget runs on its own, it gets one from the backend's dev endpoint.
 const startSession = async () => {
-  if (!token.value) {
-    const res = await fetch(`${API_URL}/start_session`, { method: "GET" });
-    const data = await res.json();
-    token.value = data.token;
+  if (!token.value && !refreshUrl) {
+    try {
+      await refreshToken();
+    } catch (error) {
+      console.error("Error starting session: ", error);
+      const text = devModeOff.value ? DEV_MODE_OFF_TEXT : "Error: Could not start a chat session.";
+      messages.value.push({ text, rawText: text, type: "bot", error: true });
+    }
   }
+}
+
+// Gets a new token. Inside MMT it asks MMT, which checks the user's login cookie, so a logged-out user gets a 403 or a redirect to the login page.
+// On its own it asks the backend's /start_session, which only works with AUTH_DEV_MODE enabled.
+const refreshToken = async () => {
+  const res = await fetch(refreshUrl ?? `${apiUrl}/start_session`, { credentials: "same-origin" });
+  devModeOff.value = !refreshUrl && res.status === 404;
+  const isJson = (res.headers?.get("Content-Type") ?? "").includes("application/json");
+  if (!res.ok || !isJson) throw new Error(`Token refresh failed with status ${res.status}`);
+  const data = await res.json();
+  if (!data.token) throw new Error("Token refresh returned no token");
+  token.value = data.token;
+}
+
+// POSTs to the backend. On 401 the token is renewed and the request sent once more.
+const authorizedFetch = async (path, body) => {
+  const send = () => fetch(`${apiUrl}${path}`, {
+    method: "POST",
+    headers: {
+      "Authorization": token.value,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(body),
+  });
+
+  const res = await send();
+  if (res.status !== 401) return res;
+  try {
+    await refreshToken();
+  } catch (error) {
+    console.error("Error refreshing token: ", error);
+    return res;
+  }
+  return send();
 }
 
 const scrollToBottom = () => {
@@ -143,47 +186,18 @@ const sendMessage = async (questionText = null) => {
   loading.value = true;
   
   try {
-    const res = await fetch(`${API_URL}/chat`, {
-      method: "POST",
-      headers: {
-        "Authorization": token.value,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ prompt: textToSend, project_id: projectId, conversation_id: conversationId.value }),
-    });
+    const res = await authorizedFetch("/chat", { prompt: textToSend, project_id: projectId, conversation_id: conversationId.value });
 
-    if (res.status === 401) {
-      
-      window.top.postMessage("AUTH_EXPIRED_SIGNAL", "*");
-
-      await new Promise((resolve) => {
-        const handleMessage = (event) => {
-          if (event.data && event.data.type === 'NEW_TOKEN') {
-            token.value = event.data.token;
-            
-            window.removeEventListener('message', handleMessage);
-            resolve();
-          }
-        };
-
-        window.addEventListener('message', handleMessage);
-      });
-
-      messages.value.push({ 
-        text: `Token expired and refreshed. Please send a new message`, 
-        rawText: ``, 
-        type: "bot" 
-      }); 
-      return;
-    }
-
-    else if (res.ok === false) {
+    if (res.ok === false) {
       const errorTexts = {
+        401: "Your session has ended. Please reload the page.",
         403: "You don't have access to the chatbot for this project.",
         413: "Your message is too long. Please shorten it and try again.",
         429: "You've asked a lot of questions in a short time. Please wait a minute and try again.",
       };
-      const text = errorTexts[res.status] ?? "Error: Could not connect to the LLM.";
+      const text = res.status === 401 && devModeOff.value
+        ? DEV_MODE_OFF_TEXT
+        : errorTexts[res.status] ?? "Error: Could not connect to the LLM.";
       messages.value.push({ text, rawText: text, type: "bot", error: true });
       return;
     }
@@ -235,14 +249,7 @@ const sendFeedback = async (index, rating) => {
   if (!msg.messageId || msg.rating === rating) return;
   messages.value[index] = { ...msg, rating };
   try {
-    await fetch(`${API_URL}/feedback`, {
-      method: "POST",
-      headers: {
-        "Authorization": token.value,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ message_id: msg.messageId, rating }),
-    });
+    await authorizedFetch("/feedback", { message_id: msg.messageId, rating });
   } catch (error) {
     console.error("Error sending feedback: ", error);
   }

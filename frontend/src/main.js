@@ -2,10 +2,14 @@ import { createApp } from 'vue'
 import './style.css'
 import Chatbox from './Chatbox.vue'
 
+const DEFAULT_API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+
 export function createChatboxApp(targetElement, options) {
     const app = createApp(Chatbox);
     app.provide("projectId", options.project_id);
     app.provide("token", options.token ?? null);
+    app.provide("apiUrl", options.api_url || DEFAULT_API_URL);
+    app.provide("refreshUrl", options.refresh_url || null);
     app.mount(targetElement);
 }
 
@@ -15,7 +19,9 @@ if (widgetAnchor) {
     // If found, used through CakePHP. Start using data-attributes.
     createChatboxApp(widgetAnchor, { 
         project_id: widgetAnchor.dataset.projectId, 
-        token: widgetAnchor.dataset.token 
+        token: widgetAnchor.dataset.token,
+        api_url: widgetAnchor.dataset.apiUrl,
+        refresh_url: widgetAnchor.dataset.refreshUrl
     });
 } 
 
