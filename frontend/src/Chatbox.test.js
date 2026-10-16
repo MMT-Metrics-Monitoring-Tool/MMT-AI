@@ -22,11 +22,12 @@ describe('Chatbox.vue', () => {
     })
   })
 
-  const createWrapper = () => mount(Chatbox, {
+  const createWrapper = (provide = {}) => mount(Chatbox, {
     global: {
       provide: {
         token: 'initial-token',
-        projectId: 1
+        projectId: 1,
+        ...provide
       }
     }
   })
@@ -83,36 +84,6 @@ describe('Chatbox.vue', () => {
     expect(wrapper.find('.category-chip').exists()).toBe(true)
   })
 	
-	it('refreshes token and shows notification when API returns 401', async () => {
-		const wrapper = createWrapper()
-		
-		const postMessageSpy = vi.spyOn(window.top, 'postMessage')
-		
-		mockFetch.mockResolvedValueOnce({
-			status: 401,
-			ok: false
-		})
-
-		await wrapper.find('input').setValue('Hello')
-		await wrapper.find('.input-area button').trigger('click')
-		
-		await flushPromises(); 
-
-		expect(postMessageSpy).toHaveBeenCalledWith("AUTH_EXPIRED_SIGNAL", "*")
-
-		const mockNewToken = 'refreshed-token-xyz'
-		window.dispatchEvent(new MessageEvent('message', {
-			data: { type: 'NEW_TOKEN', token: mockNewToken }
-		}))
-		
-		await flushPromises()
-
-		expect(wrapper.vm.token).toBe(mockNewToken)
-		expect(wrapper.text()).toContain('Token expired and refreshed')
-		
-		postMessageSpy.mockRestore()
-	})
-
 	const streamResponse = (events) => {
 		const encoder = new TextEncoder()
 		const chunks = events.map(([event, data]) => encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`))
@@ -132,6 +103,59 @@ describe('Chatbox.vue', () => {
 		await wrapper.find('.input-area button').trigger('click')
 		await flushPromises()
 	}
+
+	const jsonResponse = (data, status = 200) => ({
+		ok: status >= 200 && status < 300,
+		status,
+		headers: new Headers({ 'Content-Type': 'application/json' }),
+		json: () => Promise.resolve(data),
+	})
+
+	it('sends requests to the address from data-api-url', async () => {
+		const wrapper = createWrapper({ apiUrl: 'https://ai.example.test' })
+		mockFetch.mockResolvedValueOnce(streamResponse([]))
+
+		await ask(wrapper)
+
+		expect(mockFetch.mock.calls.at(-1)[0]).toBe('https://ai.example.test/chat')
+	})
+
+	it('renews the token after a 401 and sends the question again', async () => {
+		const wrapper = createWrapper({ refreshUrl: '/chatbot/refresh-token' })
+		mockFetch
+			.mockResolvedValueOnce({ ok: false, status: 401 })
+			.mockResolvedValueOnce(jsonResponse({ token: 'refreshed-token-xyz' }))
+			.mockResolvedValueOnce(streamResponse([['token', { text: 'Answer' }], ['done', { message_id: 'm1' }]]))
+
+		await ask(wrapper)
+
+		const calls = mockFetch.mock.calls
+		expect(calls.at(-3)[1].headers.Authorization).toBe('initial-token')
+		expect(calls.at(-2)).toEqual(['/chatbot/refresh-token', { credentials: 'same-origin' }])
+		expect(calls.at(-1)[0]).toMatch(/\/chat$/)
+		expect(calls.at(-1)[1].headers.Authorization).toBe('refreshed-token-xyz')
+		expect(wrapper.findAll('.chatbox-message.bot').at(-1).text()).toContain('Answer')
+	})
+
+	it.each([
+		['is refused', { ok: false, status: 403, headers: new Headers({ 'Content-Type': 'application/json' }), json: () => Promise.resolve({}) }],
+		['redirects to the login page', { ok: true, status: 200, headers: new Headers({ 'Content-Type': 'text/html' }), json: () => Promise.reject(new Error('not JSON')) }],
+	])('shows the session ended text when the token refresh %s', async (_, refreshResponse) => {
+		const wrapper = createWrapper({ refreshUrl: '/chatbot/refresh-token' })
+		mockFetch
+			.mockResolvedValueOnce({ ok: false, status: 401 })
+			.mockResolvedValueOnce(refreshResponse)
+
+		await ask(wrapper)
+
+		expect(mockFetch).toHaveBeenCalledTimes(2)
+		expect(wrapper.findAll('.chatbox-message.bot').at(-1).text()).toContain('Your session has ended')
+	})
+
+	it('does not call /start_session inside MMT', () => {
+		createWrapper({ token: '', refreshUrl: '/chatbot/refresh-token' })
+		expect(mockFetch).not.toHaveBeenCalled()
+	})
 
 	it('streams the answer from events and sends the conversation ID with the next question', async () => {
 		const wrapper = createWrapper()

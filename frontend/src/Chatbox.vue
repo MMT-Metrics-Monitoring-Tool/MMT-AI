@@ -90,8 +90,6 @@ import DOMPurify from "dompurify";
 import categorizedQuestions from "./categorizedQuestions.json";
 import { createSseParser } from "./sse.js";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
-
 const questionCategories = Object.keys(categorizedQuestions);
 const selectedCategory = ref("");
 
@@ -112,16 +110,53 @@ const token = ref(inject("token"));
 const input = ref("");
 const loading = ref(false);
 const projectId = inject("projectId");
+// Backend address and MMT's token renewal URL, given by MMT through data attributes (see main.js).
+const apiUrl = inject("apiUrl", import.meta.env.VITE_API_URL ?? "http://localhost:8000");
+const refreshUrl = inject("refreshUrl", null);
 // Sent with each question so the backend can include earlier messages. Set by the backend's first "start" event.
 const conversationId = ref(null);
 const messagesContainer = useTemplateRef('messagesContainer');
 
+// The backend's dev endpoint is only needed when the widget runs on its own. Inside MMT the token comes from MMT.
 const startSession = async () => {
-  if (!token.value) {
-    const res = await fetch(`${API_URL}/start_session`, { method: "GET" });
+  if (!token.value && !refreshUrl) {
+    const res = await fetch(`${apiUrl}/start_session`, { method: "GET" });
     const data = await res.json();
     token.value = data.token;
   }
+}
+
+// Asks MMT for a new token. MMT checks the user's login cookie, so a logged-out user gets a 403 or a redirect to the login page.
+const refreshToken = async () => {
+  if (!refreshUrl) throw new Error("No token refresh URL");
+  const res = await fetch(refreshUrl, { credentials: "same-origin" });
+  const isJson = (res.headers?.get("Content-Type") ?? "").includes("application/json");
+  if (!res.ok || !isJson) throw new Error(`Token refresh failed with status ${res.status}`);
+  const data = await res.json();
+  if (!data.token) throw new Error("Token refresh returned no token");
+  token.value = data.token;
+}
+
+// POSTs to the backend. On 401 the token is renewed and the request sent once more.
+const authorizedFetch = async (path, body) => {
+  const send = () => fetch(`${apiUrl}${path}`, {
+    method: "POST",
+    headers: {
+      "Authorization": token.value,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(body),
+  });
+
+  const res = await send();
+  if (res.status !== 401 || !refreshUrl) return res;
+  try {
+    await refreshToken();
+  } catch (error) {
+    console.error("Error refreshing token: ", error);
+    return res;
+  }
+  return send();
 }
 
 const scrollToBottom = () => {
@@ -143,42 +178,11 @@ const sendMessage = async (questionText = null) => {
   loading.value = true;
   
   try {
-    const res = await fetch(`${API_URL}/chat`, {
-      method: "POST",
-      headers: {
-        "Authorization": token.value,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ prompt: textToSend, project_id: projectId, conversation_id: conversationId.value }),
-    });
+    const res = await authorizedFetch("/chat", { prompt: textToSend, project_id: projectId, conversation_id: conversationId.value });
 
-    if (res.status === 401) {
-      
-      window.top.postMessage("AUTH_EXPIRED_SIGNAL", "*");
-
-      await new Promise((resolve) => {
-        const handleMessage = (event) => {
-          if (event.data && event.data.type === 'NEW_TOKEN') {
-            token.value = event.data.token;
-            
-            window.removeEventListener('message', handleMessage);
-            resolve();
-          }
-        };
-
-        window.addEventListener('message', handleMessage);
-      });
-
-      messages.value.push({ 
-        text: `Token expired and refreshed. Please send a new message`, 
-        rawText: ``, 
-        type: "bot" 
-      }); 
-      return;
-    }
-
-    else if (res.ok === false) {
+    if (res.ok === false) {
       const errorTexts = {
+        401: "Your session has ended. Please reload the page.",
         403: "You don't have access to the chatbot for this project.",
         413: "Your message is too long. Please shorten it and try again.",
         429: "You've asked a lot of questions in a short time. Please wait a minute and try again.",
@@ -235,14 +239,7 @@ const sendFeedback = async (index, rating) => {
   if (!msg.messageId || msg.rating === rating) return;
   messages.value[index] = { ...msg, rating };
   try {
-    await fetch(`${API_URL}/feedback`, {
-      method: "POST",
-      headers: {
-        "Authorization": token.value,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ message_id: msg.messageId, rating }),
-    });
+    await authorizedFetch("/feedback", { message_id: msg.messageId, rating });
   } catch (error) {
     console.error("Error sending feedback: ", error);
   }
