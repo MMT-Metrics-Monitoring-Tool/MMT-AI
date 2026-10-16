@@ -116,20 +116,28 @@ const refreshUrl = inject("refreshUrl", null);
 // Sent with each question so the backend can include earlier messages. Set by the backend's first "start" event.
 const conversationId = ref(null);
 const messagesContainer = useTemplateRef('messagesContainer');
+// True when the widget runs on its own and the backend refused /start_session because AUTH_DEV_MODE is off.
+const devModeOff = ref(false);
+const DEV_MODE_OFF_TEXT = "The chatbot is running without MMT, but the backend's AUTH_DEV_MODE is off, so it can't give out a token. Set AUTH_DEV_MODE=true in the backend's .env and restart it.";
 
-// The backend's dev endpoint is only needed when the widget runs on its own. Inside MMT the token comes from MMT.
+// Inside MMT the token comes from MMT. When the widget runs on its own, it gets one from the backend's dev endpoint.
 const startSession = async () => {
   if (!token.value && !refreshUrl) {
-    const res = await fetch(`${apiUrl}/start_session`, { method: "GET" });
-    const data = await res.json();
-    token.value = data.token;
+    try {
+      await refreshToken();
+    } catch (error) {
+      console.error("Error starting session: ", error);
+      const text = devModeOff.value ? DEV_MODE_OFF_TEXT : "Error: Could not start a chat session.";
+      messages.value.push({ text, rawText: text, type: "bot", error: true });
+    }
   }
 }
 
-// Asks MMT for a new token. MMT checks the user's login cookie, so a logged-out user gets a 403 or a redirect to the login page.
+// Gets a new token. Inside MMT it asks MMT, which checks the user's login cookie, so a logged-out user gets a 403 or a redirect to the login page.
+// On its own it asks the backend's /start_session, which only works with AUTH_DEV_MODE enabled.
 const refreshToken = async () => {
-  if (!refreshUrl) throw new Error("No token refresh URL");
-  const res = await fetch(refreshUrl, { credentials: "same-origin" });
+  const res = await fetch(refreshUrl ?? `${apiUrl}/start_session`, { credentials: "same-origin" });
+  devModeOff.value = !refreshUrl && res.status === 404;
   const isJson = (res.headers?.get("Content-Type") ?? "").includes("application/json");
   if (!res.ok || !isJson) throw new Error(`Token refresh failed with status ${res.status}`);
   const data = await res.json();
@@ -149,7 +157,7 @@ const authorizedFetch = async (path, body) => {
   });
 
   const res = await send();
-  if (res.status !== 401 || !refreshUrl) return res;
+  if (res.status !== 401) return res;
   try {
     await refreshToken();
   } catch (error) {
@@ -187,7 +195,9 @@ const sendMessage = async (questionText = null) => {
         413: "Your message is too long. Please shorten it and try again.",
         429: "You've asked a lot of questions in a short time. Please wait a minute and try again.",
       };
-      const text = errorTexts[res.status] ?? "Error: Could not connect to the LLM.";
+      const text = res.status === 401 && devModeOff.value
+        ? DEV_MODE_OFF_TEXT
+        : errorTexts[res.status] ?? "Error: Could not connect to the LLM.";
       messages.value.push({ text, rawText: text, type: "bot", error: true });
       return;
     }

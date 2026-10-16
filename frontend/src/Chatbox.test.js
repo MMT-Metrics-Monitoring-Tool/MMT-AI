@@ -152,6 +152,40 @@ describe('Chatbox.vue', () => {
 		expect(wrapper.findAll('.chatbox-message.bot').at(-1).text()).toContain('Your session has ended')
 	})
 
+	it('renews the token from /start_session when running on its own', async () => {
+		const wrapper = createWrapper()
+		mockFetch
+			.mockResolvedValueOnce({ ok: false, status: 401 })
+			.mockResolvedValueOnce(jsonResponse({ token: 'dev-token' }))
+			.mockResolvedValueOnce(streamResponse([['token', { text: 'Answer' }]]))
+
+		await ask(wrapper)
+
+		const calls = mockFetch.mock.calls
+		expect(calls.at(-2)[0]).toBe('http://localhost:8000/start_session')
+		expect(calls.at(-1)[1].headers.Authorization).toBe('dev-token')
+	})
+
+	it('explains when the backend has AUTH_DEV_MODE off', async () => {
+		mockFetch.mockResolvedValueOnce(jsonResponse({ detail: 'Not found' }, 404))
+		const wrapper = createWrapper({ token: '' })
+		await flushPromises()
+
+		expect(mockFetch.mock.calls[0][0]).toBe('http://localhost:8000/start_session')
+		expect(wrapper.findAll('.chatbox-message.bot').at(-1).text()).toContain('AUTH_DEV_MODE is off')
+	})
+
+	it('explains AUTH_DEV_MODE when renewing the token on its own fails', async () => {
+		const wrapper = createWrapper()
+		mockFetch
+			.mockResolvedValueOnce({ ok: false, status: 401 })
+			.mockResolvedValueOnce(jsonResponse({ detail: 'Not found' }, 404))
+
+		await ask(wrapper)
+
+		expect(wrapper.findAll('.chatbox-message.bot').at(-1).text()).toContain('AUTH_DEV_MODE is off')
+	})
+
 	it('does not call /start_session inside MMT', () => {
 		createWrapper({ token: '', refreshUrl: '/chatbot/refresh-token' })
 		expect(mockFetch).not.toHaveBeenCalled()
