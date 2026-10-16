@@ -1,12 +1,15 @@
-SELECT wr.week,
-  SUM(wh.duration) AS 'duration',
+SELECT wr.year,
+  wr.week,
   wr.meetings,
+  (
+    SELECT SUM(wh.duration)
+    FROM weeklyhours wh
+    WHERE wh.weeklyreport_id = wr.id
+  ) AS 'reported_hours',
   mt.description,
   m.value
-FROM projects p
-  LEFT JOIN weeklyreports wr ON wr.project_id = p.id
-  LEFT JOIN weeklyhours wh ON wh.weeklyreport_id = wr.id
-  LEFT JOIN metrics m ON m.weeklyreport_id = wr.id
+FROM weeklyreports wr
+  INNER JOIN metrics m ON m.weeklyreport_id = wr.id
   INNER JOIN metrictypes mt ON mt.id = m.metrictype_id
-WHERE p.id = %s
-GROUP BY m.id;
+WHERE wr.project_id = %s
+ORDER BY wr.year, wr.week, mt.id;

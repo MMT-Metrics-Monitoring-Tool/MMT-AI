@@ -63,8 +63,12 @@ def main() -> int:
     results = []
     for case in cases:
         project = case.get("project", defaults["project"])
-        snapshot = (EVALS_DIR / "fixtures" / f"{project}.txt").read_text(encoding="utf-8")
         today = date.fromisoformat(case.get("today", defaults["today"]))
+        # The fixtures contain the project's current_date; keep it in line with the case's date.
+        snapshot = re.sub(
+            r"current_date: \d{4}-\d{2}-\d{2}", f"current_date: {today.isoformat()}",
+            (EVALS_DIR / "fixtures" / f"{project}.txt").read_text(encoding="utf-8"),
+        )
         messages = context.build_messages(
             case["question"], case.get("history", []), project_id=0, today=today, project_snapshot=snapshot,
         )

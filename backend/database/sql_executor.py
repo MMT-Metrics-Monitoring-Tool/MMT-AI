@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 from typing import Any, List, Dict, TypedDict, cast
 
 from database import db
@@ -15,6 +16,7 @@ file_format_mapping: dict[str, str] = {
     "project_members_working_hours.sql": "\nTarget and current hours for project members:\n{}",
     "project_metrics.sql": "\nProject metrics for each week:\n{}",
     "project_risks.sql": "\nProject risk information:\n{}",
+    "project_weekly_logged_hours.sql": "\nLogged working hours per week (from the team's working hour entries):\n{}",
     "project_working_hours.sql": "\nTarget and current hours for the whole project:\n{}",
 }
 
@@ -66,11 +68,15 @@ class Row(TypedDict, total=False):
     pass
 
 class MetricsRow(TypedDict):
+    year: int
     week: int
-    duration: float
-    meetings: int
+    reported_hours: float | None
+    meetings: str
     description: str
     value: float | int | str
+
+
+WEEKLY_HOURS_FILE = "project_weekly_logged_hours.sql"
 
 
 def execute_sql_file(file: str, project_id: int) -> list[dict[str, Any]]:
@@ -116,6 +122,8 @@ def map_identifier_values(key: str, value: Any) -> str:
     Returns:
         str: The textual description. If no mapping for key is found, returns the given value.
     """
+    if key not in ("severity", "probability", "category", "impact", "status"):
+        return "" if value is None else str(value)
     int_value = _to_int(value)
     if int_value is None:
         return "" if value is None else str(value)
@@ -160,7 +168,7 @@ def map_metrics_values(key: str, value: float | int | str) -> str:
 
 
 def format_metrics_row(data: List[MetricsRow]) -> str:
-    """Formats results from the project metrics query.
+    """Formats results from the project metrics query, which are sorted by year and week.
 
     Args:
         data (List[Dict]): Results of the project metrics query.
@@ -169,29 +177,57 @@ def format_metrics_row(data: List[MetricsRow]) -> str:
         str: Formatted data.
     """
     formatted_data: list[str] = []
-    latest_week_num = 0
+    current_report = None
 
     for row in data:
-        week_num = row["week"]
-
-        if week_num is None: 
+        if row["week"] is None:
             continue
 
-        # Differing formatting for the first row of each week, containing week num, working hours, and meetings.
-        if (week_num > latest_week_num):
-            duration = row.get("duration") or 0.0  # Default to 0.0 if NULL
-            meetings = row.get("meetings") or 0    # Default to 0 if NULL
+        # Each weekly report starts with a header line containing the week, the hours reported in it and the meetings.
+        # Reports without reported hours say "none" rather than 0, so missing data is not presented as zero hours.
+        report = (row.get("year"), row["week"])
+        if report != current_report:
+            week = f"{row['week']}/{row['year']}" if row.get("year") else str(row["week"])
+            reported = row.get("reported_hours")
+            reported_text = f"{float(reported):.1f}" if reported is not None else "none"
             formatted_data.append(
-                f"Metrics for week {week_num}, "
-                f"working hours: {duration:.1f}, "
-                f"meetings: {meetings}"
+                f"Weekly report for week {week}, hours reported: {reported_text}, meetings: {row.get('meetings') or 'none'}"
             )
-            latest_week_num = week_num
+            current_report = report
 
         mapped_value = map_metrics_values(row["description"], row["value"])
         formatted_data.append(f"{row['description']}: {mapped_value}")
 
     return "\n".join(formatted_data)
+
+
+def _week_label(iso_year: int, iso_week: int) -> str:
+    monday = date.fromisocalendar(iso_year, iso_week, 1)
+    return f"week {iso_week}/{iso_year} ({monday:%d.%m.}-{monday + timedelta(days=6):%d.%m.})"
+
+
+def format_weekly_hours(rows: list[dict[str, Any]], today: date) -> str:
+    """Formats the logged hours per ISO week, from the first week with hours up to the current week.
+    Weeks without any entries are listed with 0.0 h, so the model does not have to infer them.
+    """
+    hours = {(int(row["iso_year"]), int(row["iso_week"])): float(row["hours"] or 0) for row in rows}
+    if not hours:
+        return "None recorded."
+    week = date.fromisocalendar(*min(hours), 1)
+    last = max(date.fromisocalendar(*max(hours), 1), today - timedelta(days=today.weekday()))
+    lines = []
+    while week <= last:
+        iso_year, iso_week, _ = week.isocalendar()
+        lines.append(f"{_week_label(iso_year, iso_week)}: {hours.get((iso_year, iso_week), 0.0):.1f} h")
+        week += timedelta(weeks=1)
+    return "\n".join(lines)
+
+
+def _week_summary(rows: list[dict[str, Any]], day: date, label: str) -> str:
+    iso_year, iso_week, _ = day.isocalendar()
+    logged = sum(float(row["hours"] or 0) for row in rows
+                 if (int(row["iso_year"]), int(row["iso_week"])) == (iso_year, iso_week))
+    return f"{label}, {_week_label(iso_year, iso_week)}: {logged:.1f} h logged"
 
 
 def format_generic_data(file: str, data: list[dict[str, Any]]) -> str:
@@ -241,16 +277,23 @@ def _hours_summary(row: dict[str, Any], label: str) -> str:
     return f"{label}: {current:.1f} h logged, no target set"
 
 
-def get_project_snapshot(project_id: int) -> str:
+def get_project_snapshot(project_id: int, today: date | None = None) -> str:
     """Returns the project data for the chatbot prompt: computed summary figures first, then all sections.
     Empty sections are stated explicitly, so the model does not have to infer that data is missing.
+
+    Args:
+        today: Overrides today's date for the weekly hours. Used by the tests.
     """
+    today = today or date.today()
     results = {f: execute_sql_file(os.path.join(sql_path, f), project_id) for f in sql_files}
 
     summary: list[str] = []
     for row in results.get("project_working_hours.sql", []):
         if row.get("target_hours") is not None or row.get("current_hours") is not None:
             summary.append(_hours_summary(row, "Team hours"))
+    weekly_hours = results.get(WEEKLY_HOURS_FILE, [])
+    summary.append(_week_summary(weekly_hours, today, "Team hours this week"))
+    summary.append(_week_summary(weekly_hours, today - timedelta(weeks=1), "Team hours last week"))
     for row in results.get("project_members_working_hours.sql", []):
         summary.append(_hours_summary(row, f"Member {row.get('user_id')} hours"))
     risks = results.get("project_risks.sql", [])
@@ -259,13 +302,17 @@ def get_project_snapshot(project_id: int) -> str:
         f"Risks: {len(risks)} recorded ({statuses.count('Active')} active, "
         f"{statuses.count('Mitigated')} mitigated, {statuses.count('Closed')} closed)"
     )
-    weeks = [row["week"] for row in results.get("project_metrics.sql", []) if row.get("week") is not None]
-    summary.append(f"Weekly reports: {len(set(weeks))}" + (f", latest week {max(weeks)}" if weeks else ""))
+    reports = sorted({(row.get("year") or 0, row["week"]) for row in results.get("project_metrics.sql", [])
+                      if row.get("week") is not None})
+    summary.append(f"Weekly reports: {len(reports)}" + (f", latest week {reports[-1][1]}" if reports else ""))
 
     sections = ["Summary:\n" + "\n".join(summary)]
     for f in sql_files:
-        if results[f]:
+        template = file_format_mapping.get(f, "Data:\n{}")
+        if f == WEEKLY_HOURS_FILE:
+            sections.append(template.format(format_weekly_hours(results[f], today)))
+        elif results[f]:
             sections.append(format_query_results(f, results[f]))
         else:
-            sections.append(file_format_mapping.get(f, "Data:\n{}").format("None recorded."))
+            sections.append(template.format("None recorded."))
     return "\n".join(sections)

@@ -1,5 +1,7 @@
 Summary:
 Team hours: 2.0 h logged of 130 h target (2%)
+Team hours this week, week 41/2026 (05.10.-11.10.): 2.0 h logged
+Team hours last week, week 40/2026 (28.09.-04.10.): 0.0 h logged
 Member 22 hours: 2.0 h logged of 130 h target (2%)
 Risks: 0 recorded (0 active, 0 mitigated, 0 closed)
 Weekly reports: 1, latest week 41
@@ -8,10 +10,10 @@ Project and general info:
 project_name: Testiprojekti, created_on: 2026-09-01, finished_date: 2027-04-08, current_date: 2026-10-08
 
 Target and current hours for project members:
-user_id: 22, target_hours: 130, current_hours: 2
+user_id: 22, target_hours: 130, current_hours: 2.0
 
 Project metrics for each week:
-Metrics for week 41, working hours: 2.0, meetings: 1
+Weekly report for week 41/2026, hours reported: 2.0, meetings: 1
 reqNew: 1
 reqInProgress: 1
 reqClosed: 0
@@ -20,5 +22,8 @@ overallStatus: All OK
 Project risk information:
 None recorded.
 
+Logged working hours per week (from the team's working hour entries):
+week 41/2026 (05.10.-11.10.): 2.0 h
+
 Target and current hours for the whole project:
-target_hours: 130, current_hours: 2
+target_hours: 130, current_hours: 2.0
