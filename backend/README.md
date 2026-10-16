@@ -22,7 +22,7 @@ The LLM is accessed through any OpenAI-compatible API (`chatbot/llm.py`), so cha
 
 ## Authentication (token contract with MMT)
 
-MMT issues the chatbot token and passes it to the frontend (the `data-token` attribute of the widget, and a `NEW_TOKEN` message when the frontend reports `AUTH_EXPIRED_SIGNAL`).
+MMT issues the chatbot token and passes it to the widget in its `data-token` attribute. When the backend answers 401, the widget gets a new token from MMT's `data-refresh-url` and retries (see [frontend/README.md](../frontend/README.md)). Requests carry the token as-is in the `Authorization` header.
 The token is a JWT signed with the shared `JWT_SECRET_KEY` using `JWT_ALGORITHM`, with these claims:
 
 | Claim | Type | Description |
@@ -45,7 +45,9 @@ $token = \Firebase\JWT\JWT::encode([
 ], $sharedSecret, 'HS256');
 ```
 
-For local development without MMT, set `AUTH_DEV_MODE=true`. `/start_session` then issues tokens for the projects in `DEV_PROJECT_IDS`. Never enable it in production.
+For local development without MMT, set `AUTH_DEV_MODE=true`. `/start_session` then issues tokens for the projects in `DEV_PROJECT_IDS`. When dev mode is off, it answers 404. Never enable it in production.
+
+In MMT the secret is `AiChat.jwtSecret` (`AI_CHAT_JWT_SECRET`) and the token lifetime `AiChat.tokenTtl` (`AI_CHAT_TOKEN_TTL`, seconds). To test token renewal locally, set the lifetime to e.g. 10 seconds.
 
 # Installation
 
@@ -59,16 +61,34 @@ Install dependencies from the `requirements.txt` file. For running tests, instal
 
 ## Application
 
-Copy the contents of `dotenv` to `.env`. Set the following required values:
+Copy `dotenv` (in the repository root) to `.env` next to it. Both the Makefile (`../.env`) and `python main.py` read it from there. Set the following required values:
 
-- `MODEL_NAME` — the model identifier to use (e.g. `gemma3-12b`)
+- `MODEL_NAME` — the model identifier to use (e.g. `qwen3-next-80b-a3b-instruct`)
 - `API_BASE_URL` — the API endpoint URL (e.g. `https://aviary.fgl.rd.tuni.fi/api/` NOTE! Use TUNI VPN!)
 - `API_KEY` — your API key
 - `JWT_SECRET_KEY` — a pseudorandom secret string, min. 32 bytes recommended. Must be the same secret MMT uses to sign chatbot tokens.
 - `AUTH_DEV_MODE` — `true` only for local development without MMT (see Authentication).
-- `DB_HOST` — the database hostname. For Docker, use the database container service name `mariandb`.
+- `DB_HOST` — the database hostname. For Docker, use the database container service name `mariadb`.
 - `DB_PORT` — the database port, usually `3306` for MariaDB/MySQL.
 - `DB_USER`, `DB_PASS`, `DB_NAME` — database credentials/schema.
+- `CORS_ORIGINS` — comma-separated origins allowed to call the API. Use the MMT address on servers (locally e.g. `http://localhost`); the default `*` allows any.
+
+Optional settings, with their values in `dotenv`:
+
+| Setting | Value | Description |
+| --- | --- | --- |
+| `LLM_TEMPERATURE`, `LLM_MAX_TOKENS` | `0.3`, `4000` | LLM sampling and answer length (includes hidden reasoning tokens) |
+| `LLM_EXTRA_BODY` | `{"chat_template_kwargs": {"enable_thinking": false}}` | Provider-specific options as JSON. Turns Qwen's hidden thinking off, which cuts the time to the first token from ~7–60 s to ~1.5 s with equal eval results. Leave empty for models that do not support it |
+| `JWT_ALGORITHM` | `HS256` | Must match the algorithm MMT signs with |
+| `DEV_PROJECT_IDS` | `1` | Projects a development token can access |
+| `HISTORY_MESSAGES` | `10` | Earlier messages sent with each question |
+| `MAX_PROMPT_CHARS` | `2000` | Longer questions are rejected with 413 |
+| `RATE_LIMIT_REQUESTS`, `RATE_LIMIT_WINDOW_SECONDS` | `20`, `600` | Questions per user per window, then 429 |
+| `COURSE_CONTENT_TTL` | `21600` | Seconds between re-fetches of the course pages |
+| `DB_POOL_SIZE` | `5` | Database connection pool size |
+| `DB_AUTO_MIGRATE` | `true` | Create the `chatbot_` tables on startup if missing |
+
+After changing `.env`, recreate the container with `make run`; `make start` keeps the old values.
 
 ## Before running
 ### EduVPN 
@@ -105,7 +125,10 @@ docker network create mmt-shared
 ```
 
 Other containers on `mmt-shared` can reach the backend at
-`http://mmt-backend:8000`.
+`http://mmt-backend:8000`. MMT uses this address for its health check. Browsers
+cannot use it: the widget calls the backend at the published port
+(`http://localhost:8000` locally), or on servers at a public HTTPS address in
+front of the backend.
 
 The Makefile reads environment values from `../.env` by default. 
 
