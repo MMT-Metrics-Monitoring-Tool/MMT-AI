@@ -63,7 +63,7 @@ Install dependencies from the `requirements.txt` file. For running tests, instal
 
 Copy `dotenv` (in the repository root) to `.env` next to it. Both the Makefile (`../.env`) and `python main.py` read it from there. Set the following required values:
 
-- `MODEL_NAME` — the model identifier to use (e.g. `qwen3-next-80b-a3b-instruct`)
+- `MODEL_NAME` — the model identifier to use (e.g. `Qwen3.8-27B-AIC`)
 - `API_BASE_URL` — the API endpoint URL (e.g. `https://aviary.fgl.rd.tuni.fi/api/` NOTE! Use TUNI VPN!)
 - `API_KEY` — your API key
 - `JWT_SECRET_KEY` — a pseudorandom secret string, min. 32 bytes recommended. Must be the same secret MMT uses to sign chatbot tokens.

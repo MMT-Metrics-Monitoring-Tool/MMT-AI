@@ -1,6 +1,6 @@
 # Template for the required .env file. 
 # Model name:
-MODEL_NAME=qwen3-next-80b-a3b-instruct
+MODEL_NAME=Qwen3.8-27B-AIC
 
 # API ENDPOINT:
 API_BASE_URL=changeme
