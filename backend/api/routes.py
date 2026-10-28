@@ -120,3 +120,27 @@ def feedback_endpoint(feedback: FeedbackRequest, request: Request):
     ):
         raise HTTPException(status_code=404, detail="Message not found")
     return Response(status_code=204)
+
+
+@router.get("/history")
+def history_endpoint(project_id: int, request: Request, conversation_id: str | None = None):
+    """Returns the messages of a conversation so the widget can restore it after a page refresh.
+
+    Without conversation_id the user's latest conversation in the project is used.
+
+    Returns:
+        dict: conversationId (None if there is nothing to restore) and the messages, oldest first.
+    """
+    principal = authenticate(request)
+    if not principal.can_access(project_id):
+        raise HTTPException(status_code=403, detail="No access to this project")
+
+    store = request.app.state.chat_service.store
+    conversation_id = conversation_id or store.get_latest_conversation_id(principal.user_id, project_id)
+    if not conversation_id:
+        return {"conversationId": None, "messages": []}
+
+    messages = store.get_message_for_display(conversation_id, principal.user_id, project_id)
+    if not messages:
+        return {"conversationId": None, "messages": []}
+    return {"conversationId": conversation_id, "messages": messages}
