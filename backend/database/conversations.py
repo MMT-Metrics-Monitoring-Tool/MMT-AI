@@ -13,7 +13,7 @@ def apply_migrations() -> None:
     """Creates the chatbot tables if they do not exist yet."""
     for path in sorted(MIGRATIONS_DIR.glob("*.sql")):
         sql = path.read_text(encoding="utf-8")
-        db.run_script(path.read_text(encoding="utf-8"))
+        db.run_script(sql)
 
 
 @dataclass
