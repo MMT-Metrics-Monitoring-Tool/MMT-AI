@@ -146,14 +146,14 @@ const refreshToken = async () => {
 }
 
 // POSTs to the backend. On 401 the token is renewed and the request sent once more.
-const authorizedFetch = async (path, body) => {
+const authorizedFetch = async (path, body = null) => {
   const send = () => fetch(`${apiUrl}${path}`, {
-    method: "POST",
+    method: body === null ? "GET" : "POST",
     headers: {
       "Authorization": token.value,
-      "Content-Type": "application/json"
+      ...(body !== null && { "Content-Type": "application/json" }),
     },
-    body: JSON.stringify(body),
+    ...(body !== null && { body: JSON.stringify(body) }),
   });
 
   const res = await send();
@@ -173,7 +173,41 @@ const scrollToBottom = () => {
   }
 }
 
-onMounted(startSession);
+// Restores the latest conversation after a page refresh. If there is none, the greeting stays.
+const loadHistory = async () => {
+  if (!token.value) return;
+  loading.value = true; // blocks sending until the history is in place
+  try {
+    const res = await authorizedFetch(`/history?project_id=${encodeURIComponent(projectId)}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.conversationId || !data.messages?.length) return;
+
+    conversationId.value = data.conversationId;
+    messages.value = data.messages.map((m) =>
+      m.role === "user"
+        ? { text: "", rawText: m.content, type: "user" }
+        : {
+            text: sanitizeMarkdown(m.content),
+            rawText: m.content,
+            type: "bot",
+            status: "",
+            messageId: m.id,
+            rating: m.rating ?? 0,
+            error: false,
+          }
+    );
+  } catch (error) {
+    console.error("Error loading history: ", error);
+  } finally {
+    loading.value = false;
+  }
+}
+
+onMounted(async () => {
+  await startSession();
+  await loadHistory();
+});
 
 onUpdated(scrollToBottom);
 

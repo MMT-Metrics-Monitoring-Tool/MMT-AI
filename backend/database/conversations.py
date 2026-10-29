@@ -12,7 +12,8 @@ MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 def apply_migrations() -> None:
     """Creates the chatbot tables if they do not exist yet."""
     for path in sorted(MIGRATIONS_DIR.glob("*.sql")):
-        db.run_script(path.read_text(encoding="utf-8"))
+        sql = path.read_text(encoding="utf-8")
+        db.run_script(sql)
 
 
 @dataclass
@@ -54,7 +55,7 @@ class ConversationStore:
         rows = db.fetch_all(
             "SELECT role, content FROM chatbot_messages "
             "WHERE conversation_id = %s AND error IS NULL "
-            "ORDER BY created_at DESC LIMIT %s",
+            "ORDER BY seq DESC LIMIT %s",
             (conversation_id, max_messages),
         )
         return [{"role": row["role"], "content": row["content"]} for row in reversed(rows)]
@@ -87,3 +88,31 @@ class ConversationStore:
             (message_id, user_id, rating, comment),
         )
         return True
+
+    def get_latest_conversation_id(self, user_id: str, project_id: int) -> str | None:
+        """Returns the latest conversation ID for a user and project, or None if there is none."""
+        rows = db.fetch_all(
+            "SELECT id FROM chatbot_conversations WHERE user_id = %s AND project_id = %s "
+            "ORDER BY created_at DESC LIMIT 1",
+            (user_id, project_id),
+        )
+        return rows[0]["id"] if rows else None
+
+    def get_message_for_display(self, conversation_id: str, user_id: str, project_id: int, limit: int = 100) -> list[dict]:
+        """Messages for the widget, oldest first. Ownership is verified in the query."""
+        rows = db.fetch_all(
+            "SELECT m.id, m.role, m.content, m.created_at, f.rating "
+            "FROM chatbot_messages m "
+            "INNER JOIN chatbot_conversations c ON c.id = m.conversation_id "
+            "LEFT JOIN chatbot_feedback f ON f.message_id = m.id AND f.user_id = c.user_id "
+            "WHERE m.conversation_id = %s AND c.user_id = %s AND c.project_id = %s "
+            "AND m.error IS NULL "
+            "ORDER BY m.seq DESC LIMIT %s",
+            (conversation_id, user_id, project_id, limit),
+        )
+        return [
+            {"id": r["id"], "role": r["role"], "content": r["content"],
+            "createdAt": r["created_at"].isoformat(), "rating": r["rating"]}
+            for r in reversed(rows)
+        ]
+

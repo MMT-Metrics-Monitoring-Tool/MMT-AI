@@ -11,8 +11,18 @@ vi.mock('./categorizedQuestions.json', () => ({
 
 
 describe('Chatbox.vue', () => {
+  const jsonResponse = (data, status = 200) => ({
+    ok: status >= 200 && status < 300,
+    status,
+    headers: new Headers({ 'Content-Type': 'application/json' }),
+    json: () => Promise.resolve(data),
+  })
+
+  // The history request on mount goes to its own mock, so the other tests can queue responses for their own requests.
   const mockFetch = vi.fn()
-  vi.stubGlobal('fetch', mockFetch)
+  const historyFetch = vi.fn()
+  vi.stubGlobal('fetch', (url, options) =>
+    String(url).includes('/history?') ? historyFetch(url, options) : mockFetch(url, options))
 
   beforeEach(() => {
     mockFetch.mockClear()
@@ -20,25 +30,32 @@ describe('Chatbox.vue', () => {
       ok: true,
       json: () => Promise.resolve({ token: 'mock-token-123' }),
     })
+    historyFetch.mockReset()
+    historyFetch.mockResolvedValue(jsonResponse({ conversationId: null, messages: [] }))
   })
 
-  const createWrapper = (provide = {}) => mount(Chatbox, {
-    global: {
-      provide: {
-        token: 'initial-token',
-        projectId: 1,
-        ...provide
+  // Waits for the session and history loading on mount, as sending is blocked until then.
+  const createWrapper = async (provide = {}) => {
+    const wrapper = mount(Chatbox, {
+      global: {
+        provide: {
+          token: 'initial-token',
+          projectId: 1,
+          ...provide
+        }
       }
-    }
-  })
+    })
+    await flushPromises()
+    return wrapper
+  }
 
-  it('renders the initial greeting message', () => {
-    const wrapper = createWrapper()
+  it('renders the initial greeting message', async () => {
+    const wrapper = await createWrapper()
     expect(wrapper.text()).toContain('Greetings. How may I be of assistance?')
   })
 
   it('shows categories initially and switches to questions on click', async () => {
-    const wrapper = createWrapper()
+    const wrapper = await createWrapper()
     
     const categories = wrapper.findAll('.category-chip')
     expect(categories[0].text()).toBe('General')
@@ -50,7 +67,7 @@ describe('Chatbox.vue', () => {
   })
 
   it('updates the input field when typing', async () => {
-    const wrapper = createWrapper()
+    const wrapper = await createWrapper()
     const input = wrapper.find('input')
     
     await input.setValue('Hello Bot')
@@ -58,7 +75,7 @@ describe('Chatbox.vue', () => {
   })
 
   it('disables input and buttons when loading is true', async () => {
-    const wrapper = createWrapper()
+    const wrapper = await createWrapper()
     await wrapper.find('input').setValue('Hello')
     
     let resolveFetch;
@@ -74,7 +91,7 @@ describe('Chatbox.vue', () => {
   })
 
   it('returns to categories when "Go back" is clicked', async () => {
-    const wrapper = createWrapper()
+    const wrapper = await createWrapper()
     
     await wrapper.find('.category-chip').trigger('click')
     expect(wrapper.find('.back-chip').exists()).toBe(true)
@@ -104,15 +121,8 @@ describe('Chatbox.vue', () => {
 		await flushPromises()
 	}
 
-	const jsonResponse = (data, status = 200) => ({
-		ok: status >= 200 && status < 300,
-		status,
-		headers: new Headers({ 'Content-Type': 'application/json' }),
-		json: () => Promise.resolve(data),
-	})
-
 	it('sends requests to the address from data-api-url', async () => {
-		const wrapper = createWrapper({ apiUrl: 'https://ai.example.test' })
+		const wrapper = await createWrapper({ apiUrl: 'https://ai.example.test' })
 		mockFetch.mockResolvedValueOnce(streamResponse([]))
 
 		await ask(wrapper)
@@ -121,7 +131,7 @@ describe('Chatbox.vue', () => {
 	})
 
 	it('renews the token after a 401 and sends the question again', async () => {
-		const wrapper = createWrapper({ refreshUrl: '/chatbot/refresh-token' })
+		const wrapper = await createWrapper({ refreshUrl: '/chatbot/refresh-token' })
 		mockFetch
 			.mockResolvedValueOnce({ ok: false, status: 401 })
 			.mockResolvedValueOnce(jsonResponse({ token: 'refreshed-token-xyz' }))
@@ -141,7 +151,7 @@ describe('Chatbox.vue', () => {
 		['is refused', { ok: false, status: 403, headers: new Headers({ 'Content-Type': 'application/json' }), json: () => Promise.resolve({}) }],
 		['redirects to the login page', { ok: true, status: 200, headers: new Headers({ 'Content-Type': 'text/html' }), json: () => Promise.reject(new Error('not JSON')) }],
 	])('shows the session ended text when the token refresh %s', async (_, refreshResponse) => {
-		const wrapper = createWrapper({ refreshUrl: '/chatbot/refresh-token' })
+		const wrapper = await createWrapper({ refreshUrl: '/chatbot/refresh-token' })
 		mockFetch
 			.mockResolvedValueOnce({ ok: false, status: 401 })
 			.mockResolvedValueOnce(refreshResponse)
@@ -153,7 +163,7 @@ describe('Chatbox.vue', () => {
 	})
 
 	it('renews the token from /start_session when running on its own', async () => {
-		const wrapper = createWrapper()
+		const wrapper = await createWrapper()
 		mockFetch
 			.mockResolvedValueOnce({ ok: false, status: 401 })
 			.mockResolvedValueOnce(jsonResponse({ token: 'dev-token' }))
@@ -168,7 +178,7 @@ describe('Chatbox.vue', () => {
 
 	it('explains when the backend has AUTH_DEV_MODE off', async () => {
 		mockFetch.mockResolvedValueOnce(jsonResponse({ detail: 'Not found' }, 404))
-		const wrapper = createWrapper({ token: '' })
+		const wrapper = await createWrapper({ token: '' })
 		await flushPromises()
 
 		expect(mockFetch.mock.calls[0][0]).toBe('http://localhost:8000/start_session')
@@ -176,7 +186,7 @@ describe('Chatbox.vue', () => {
 	})
 
 	it('explains AUTH_DEV_MODE when renewing the token on its own fails', async () => {
-		const wrapper = createWrapper()
+		const wrapper = await createWrapper()
 		mockFetch
 			.mockResolvedValueOnce({ ok: false, status: 401 })
 			.mockResolvedValueOnce(jsonResponse({ detail: 'Not found' }, 404))
@@ -186,13 +196,13 @@ describe('Chatbox.vue', () => {
 		expect(wrapper.findAll('.chatbox-message.bot').at(-1).text()).toContain('AUTH_DEV_MODE is off')
 	})
 
-	it('does not call /start_session inside MMT', () => {
-		createWrapper({ token: '', refreshUrl: '/chatbot/refresh-token' })
+	it('does not call /start_session inside MMT', async () => {
+		await createWrapper({ token: '', refreshUrl: '/chatbot/refresh-token' })
 		expect(mockFetch).not.toHaveBeenCalled()
 	})
 
 	it('streams the answer from events and sends the conversation ID with the next question', async () => {
-		const wrapper = createWrapper()
+		const wrapper = await createWrapper()
 		mockFetch.mockResolvedValueOnce(streamResponse([
 			['start', { conversation_id: 'c1' }],
 			['status', { text: 'Reading the course material…' }],
@@ -215,7 +225,7 @@ describe('Chatbox.vue', () => {
 	})
 
 	it('shows the status text until the first token arrives', async () => {
-		const wrapper = createWrapper()
+		const wrapper = await createWrapper()
 		mockFetch.mockResolvedValueOnce(streamResponse([['status', { text: 'Reading the course material…' }]]))
 
 		await ask(wrapper)
@@ -224,7 +234,7 @@ describe('Chatbox.vue', () => {
 	})
 
 	it('sends feedback for an answer', async () => {
-		const wrapper = createWrapper()
+		const wrapper = await createWrapper()
 		mockFetch.mockResolvedValueOnce(streamResponse([['token', { text: 'Answer' }], ['done', { message_id: 'm1' }]]))
 		await ask(wrapper)
 
@@ -239,7 +249,7 @@ describe('Chatbox.vue', () => {
 	})
 
 	it('shows the error event and no feedback buttons when the answer fails', async () => {
-		const wrapper = createWrapper()
+		const wrapper = await createWrapper()
 		mockFetch.mockResolvedValueOnce(streamResponse([['error', { text: 'Sorry, I could not answer.', message_id: 'm1' }]]))
 
 		await ask(wrapper)
@@ -251,7 +261,7 @@ describe('Chatbox.vue', () => {
 	})
 
 	it('removes scripts and event handlers from answers', async () => {
-		const wrapper = createWrapper()
+		const wrapper = await createWrapper()
 		mockFetch.mockResolvedValueOnce(streamResponse([
 			['token', { text: 'Risk: <img src=x onerror="alert(1)"><script>alert(2)</script>' }],
 			['done', { message_id: 'm1' }],
@@ -265,7 +275,7 @@ describe('Chatbox.vue', () => {
 	})
 
 	it('shows user messages as plain text', async () => {
-		const wrapper = createWrapper()
+		const wrapper = await createWrapper()
 		mockFetch.mockResolvedValueOnce(streamResponse([]))
 
 		await ask(wrapper, '<b>bold?</b>')
@@ -279,12 +289,69 @@ describe('Chatbox.vue', () => {
 		[403, "You don't have access"],
 		[429, 'Please wait a minute'],
 	])('explains HTTP %i errors', async (status, text) => {
-		const wrapper = createWrapper()
+		const wrapper = await createWrapper()
 		mockFetch.mockResolvedValueOnce({ ok: false, status })
 
 		await ask(wrapper)
 
 		expect(wrapper.findAll('.chatbox-message.bot').at(-1).text()).toContain(text)
+	})
+
+	it('restores the latest conversation on mount and continues it', async () => {
+		historyFetch.mockResolvedValueOnce(jsonResponse({
+			conversationId: 'c1',
+			messages: [
+				{ id: 'u1', role: 'user', content: 'When is the test plan due?', rating: null },
+				{ id: 'm1', role: 'assistant', content: 'Due **30.10.2026**', rating: 1 },
+			],
+		}))
+		const wrapper = await createWrapper()
+
+		const [url, options] = historyFetch.mock.calls[0]
+		expect(url).toBe('http://localhost:8000/history?project_id=1')
+		expect(options.method).toBe('GET')
+		expect(options.headers.Authorization).toBe('initial-token')
+		expect(options).not.toHaveProperty('body')
+
+		expect(wrapper.text()).not.toContain('Greetings')
+		expect(wrapper.find('.chatbox-message.user').text()).toBe('When is the test plan due?')
+		const bot = wrapper.find('.chatbox-message.bot')
+		expect(bot.html()).toContain('<strong>30.10.2026</strong>')
+		expect(bot.findAll('.chatbox-feedback button')[0].classes()).toContain('selected')
+
+		mockFetch.mockResolvedValueOnce(streamResponse([['done', { message_id: 'm2' }]]))
+		await ask(wrapper, 'And the test report?')
+		expect(JSON.parse(mockFetch.mock.calls.at(-1)[1].body).conversation_id).toBe('c1')
+	})
+
+	it.each([
+		['there is no earlier conversation', () => Promise.resolve(jsonResponse({ conversationId: null, messages: [] }))],
+		['the history request fails', () => Promise.resolve(jsonResponse({ detail: 'Internal error' }, 500))],
+		['the backend cannot be reached', () => Promise.reject(new TypeError('Failed to fetch'))],
+	])('keeps the greeting and allows sending when %s', async (_, response) => {
+		historyFetch.mockImplementationOnce(response)
+		const wrapper = await createWrapper()
+
+		expect(wrapper.text()).toContain('Greetings. How may I be of assistance?')
+		expect(wrapper.find('input').attributes()).not.toHaveProperty('disabled')
+	})
+
+	it('blocks sending until the history has loaded', async () => {
+		let resolveHistory
+		historyFetch.mockReturnValueOnce(new Promise((res) => { resolveHistory = res }))
+		const wrapper = mount(Chatbox, { global: { provide: { token: 'initial-token', projectId: 1 } } })
+		await flushPromises()
+
+		expect(wrapper.find('input').attributes()).toHaveProperty('disabled')
+
+		resolveHistory(jsonResponse({ conversationId: null, messages: [] }))
+		await flushPromises()
+		expect(wrapper.find('input').attributes()).not.toHaveProperty('disabled')
+	})
+
+	it('does not ask for history without a token', async () => {
+		await createWrapper({ token: '', refreshUrl: '/chatbot/refresh-token' })
+		expect(historyFetch).not.toHaveBeenCalled()
 	})
 
 })
