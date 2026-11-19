@@ -54,7 +54,7 @@
 .mmt-ai-chat-widget .chatbox-toolbar {
   display: flex;
   justify-content: flex-end;
-  padding: 4px 8px;
+  padding: 0 0 4px 0;
 }
 
 .mmt-ai-chat-widget .new-chat-button {

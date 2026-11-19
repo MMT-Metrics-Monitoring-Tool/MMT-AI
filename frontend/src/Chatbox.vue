@@ -1,5 +1,10 @@
 <template>
   <div class="mmt-ai-chat-widget">
+    <div class="chatbox-toolbar">
+      <button type="button" class="new-chat-button" :disabled="loading" @click="startNewChat">
+        New chat
+      </button>
+    </div>
     <div class="chatbox">
       <div class="chatbox-messages" ref="messagesContainer">
         <div
@@ -67,11 +72,6 @@
             Go back
           </button>
         </div>
-      </div>
-      <div class="chatbox-toolbar">
-        <button type="button" class="new-chat-button" :disabled="loading" @click="startNewChat">
-          New chat
-        </button>
       </div>
       <div class="input-area">
         <input
