@@ -68,6 +68,11 @@
           </button>
         </div>
       </div>
+      <div class="chatbox-toolbar">
+        <button type="button" class="new-chat-button" :disabled="loading" @click="startNewChat">
+          New chat
+        </button>
+      </div>
       <div class="input-area">
         <input
           v-model="input"
@@ -103,9 +108,8 @@ const selectedCategory = ref("");
  * @property {Number} rating (bot only) feedback given by the user: 1, -1 or 0 for none.
  * @property {Boolean} error (bot only) true if the answer failed.
  */
-const messages = ref([
-  { text: "Greetings. How may I be of assistance?", rawText: "", type: "bot" }, // TODO get initial message from LLM.
-]);
+const greeting = () => ({ text: "Greetings. How may I be of assistance?", rawText: "", type: "bot" });
+const messages = ref([greeting()]); // TODO get initial message from LL
 const token = ref(inject("token"));
 const input = ref("");
 const loading = ref(false);
@@ -199,6 +203,25 @@ const loadHistory = async () => {
     );
   } catch (error) {
     console.error("Error loading history: ", error);
+  } finally {
+    loading.value = false;
+  }
+}
+
+// Starts a fresh conversation. The old one remains in the database but is no longer shown.
+const startNewChat = async () => {
+  if (loading.value || !token.value) return;
+  loading.value = true;
+  try {
+    const res = await authorizedFetch("/conversations", { project_id: projectId });
+    if (!res.ok) return;
+    const data = await res.json();
+    conversationId.value = data.conversationId;
+    messages.value = [greeting()];
+    selectedCategory.value = "";
+    input.value = "";
+  } catch (error) {
+    console.error("Error starting a new chat: ", error);
   } finally {
     loading.value = false;
   }

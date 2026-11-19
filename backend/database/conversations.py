@@ -98,6 +98,20 @@ class ConversationStore:
         )
         return rows[0]["id"] if rows else None
 
+    def create_conversation(self, user_id: str, project_id: int) -> str:
+        """Creates a new empty conversation. If the latest one has no messages yet, it is reused."""
+        latest = self.get_latest_conversation_id(user_id, project_id)
+        if latest and not db.fetch_all(
+            "SELECT 1 FROM chatbot_messages WHERE conversation_id = %s LIMIT 1", (latest,)
+        ):
+            return latest
+        new_id = str(uuid.uuid4())
+        db.execute(
+            "INSERT INTO chatbot_conversations (id, user_id, project_id) VALUES (%s, %s, %s)",
+            (new_id, user_id, project_id),
+        )
+        return new_id
+
     def get_message_for_display(self, conversation_id: str, user_id: str, project_id: int, limit: int = 100) -> list[dict]:
         """Messages for the widget, oldest first. Ownership is verified in the query."""
         rows = db.fetch_all(

@@ -51,6 +51,27 @@
   border-top: 1px solid #2e0077;
 }
 
+.mmt-ai-chat-widget .chatbox-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 8px;
+}
+
+.mmt-ai-chat-widget .new-chat-button {
+  font-size: 0.85em;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid #2e0077;
+  color: #2e0077;
+  border-radius: 4px;
+  padding: 2px 10px;
+}
+
+.mmt-ai-chat-widget .new-chat-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .mmt-ai-chat-widget .chatbox-messages {
   flex: 1;
   min-height: 0;

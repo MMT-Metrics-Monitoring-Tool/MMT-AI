@@ -17,11 +17,13 @@ class ChatRequest(BaseModel):
     project_id: int
     conversation_id: str | None = None
 
-
 class FeedbackRequest(BaseModel):
     message_id: str
     rating: Literal[1, -1]
     comment: str | None = Field(default=None, max_length=2000)
+
+class NewConversationRequest(BaseModel):
+    project_id: int
 
 
 def authenticate(request: Request) -> Principal:
@@ -144,3 +146,13 @@ def history_endpoint(project_id: int, request: Request, conversation_id: str | N
     if not messages:
         return {"conversationId": None, "messages": []}
     return {"conversationId": conversation_id, "messages": messages}
+
+
+@router.post("/conversations", status_code=201)
+def new_conversation_endpoint(body: NewConversationRequest, request: Request):
+    """Starts a new empty conversation, so the widget can begin a fresh chat."""
+    principal = authenticate(request)
+    if not principal.can_access(body.project_id):
+        raise HTTPException(status_code=403, detail="No access to this project")
+    store = request.app.state.chat_service.store
+    return {"conversationId": store.create_conversation(principal.user_id, body.project_id)}
